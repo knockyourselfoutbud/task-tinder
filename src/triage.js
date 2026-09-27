@@ -1,10 +1,17 @@
-// Turns raw TickTick tasks and starred Gmail threads into swipe cards:
-// effort, energy, Eisenhower quadrant, and deck order.
+// Turns raw TickTick tasks and starred Gmail threads into swipe cards.
+// Priority is the backbone: TickTick's own priority flag decides the lane
+// (high / med / low / none), and due dates only reorder within a lane.
 
 export const EFFORTS = ['10min', '30min', '60min'];
 export const ENERGIES = ['low', 'med', 'high'];
+export const LANES = ['high', 'med', 'low', 'none'];
+export const PRIORITY_OF_LANE = { high: 5, med: 3, low: 1, none: 0 };
 const EFFORT_MIN = { '10min': 10, '30min': 30, '60min': 60 };
 const ENERGY_RANK = { low: 1, med: 2, high: 3 };
+const LANE_RANK = { high: 0, med: 1, low: 2, none: 3 };
+
+// Days a High/Medium task can sit before the card calls it stale
+export const STALE_DAYS = 14;
 
 const EFFORT_TAGS = {
   '2min': '10min', '5min': '10min', '10min': '10min', quick: '10min', small: '10min',
@@ -17,10 +24,16 @@ const ENERGY_TAGS = {
   'energy-high': 'high', 'high-energy': 'high', highenergy: 'high', focus: 'high',
 };
 
+export function laneOf(priority) {
+  if (priority >= 5) return 'high';
+  if (priority >= 3) return 'med';
+  if (priority >= 1) return 'low';
+  return 'none';
+}
+
 // ── Dates in the user's time zone ──
 
 export function localDay(date, tz) {
-  // YYYY-MM-DD in tz
   return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
 }
 
@@ -28,6 +41,10 @@ function addDays(day, n) {
   const d = new Date(day + 'T12:00:00Z');
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
+}
+
+function daysBetween(fromDay, toDay) {
+  return Math.round((new Date(toDay) - new Date(fromDay)) / 86400000);
 }
 
 // TickTick sends "2026-08-01T00:00:00-0400" (no colon in offset)
@@ -41,7 +58,7 @@ export function parseTickTickDate(s) {
 function dueLabel(dueDay, today) {
   if (!dueDay) return '';
   if (dueDay < today) {
-    const days = Math.round((new Date(today) - new Date(dueDay)) / 86400000);
+    const days = daysBetween(dueDay, today);
     return days === 1 ? 'overdue 1 day' : `overdue ${days} days`;
   }
   if (dueDay === today) return 'due today';
@@ -62,9 +79,9 @@ export function splitMarkdownLink(title) {
 export function plainSnippet(s, max = 160) {
   if (!s) return '';
   let t = s
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')   // markdown links
-    .replace(/https?:\/\/\S+/g, '')             // bare urls
-    .replace(/\\([_\-.*])/g, '$1')              // escaped md
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/\\([_\-.*])/g, '$1')
     .replace(/[*_`>#]+/g, '')
     .replace(/\s+/g, ' ')
     .trim();
@@ -99,16 +116,12 @@ function energyFrom({ tags, override }) {
   return null;
 }
 
-export function quadrantOf(urgent, important) {
-  if (urgent && important) return 'do';
-  if (important) return 'schedule';
-  if (urgent) return 'delegate';
-  return 'later';
+function ageLabel(days) {
+  if (days == null) return '';
+  if (days < 1) return 'added today';
+  if (days === 1) return 'open 1 day';
+  return `open ${days} days`;
 }
-const QUADRANT_RANK = { do: 0, schedule: 1, delegate: 2, later: 3 };
-
-// Projects whose tasks count as "important" by default
-const IMPORTANT_PROJECT_HINTS = ['priorities', 'priority'];
 
 export function cardFromTickTick(task, project, columnsById, meta, cfg) {
   const today = cfg.today;
@@ -121,15 +134,14 @@ export function cardFromTickTick(task, project, columnsById, meta, cfg) {
   const due = parseTickTickDate(task.dueDate);
   const dueDay = due ? localDay(due, cfg.tz) : null;
   const overdue = !!dueDay && dueDay < today;
+  const dueSoon = !!dueDay && dueDay <= tomorrow;
 
-  const priority = task.priority || 0;  // 0 none, 1 low, 3 med, 5 high
+  const created = parseTickTickDate(task.createdTime);
+  const ageDays = created ? Math.max(0, daysBetween(localDay(created, cfg.tz), today)) : null;
+
+  const priority = task.priority || 0;
+  const lane = laneOf(priority);
   const isAnchor = (column || '').toLowerCase().includes('anchor') || tl.includes('anchor');
-  const important =
-    tl.includes('important') ||
-    priority >= 3 ||
-    isAnchor ||
-    IMPORTANT_PROJECT_HINTS.some((h) => projectName.toLowerCase().includes(h));
-  const urgent = tl.includes('urgent') || (!!dueDay && dueDay <= tomorrow);
 
   const { text, url } = splitMarkdownLink(task.title);
   const { effort, guessed } = effortFrom({
@@ -144,34 +156,31 @@ export function cardFromTickTick(task, project, columnsById, meta, cfg) {
     link: url,
     context: plainSnippet(task.content || task.desc),
     project: projectName,
+    projectId: task.projectId,
     column: column && column !== 'Not Sectioned' ? column : null,
     tags,
     effort,
     effortGuessed: guessed,
     energy: energyFrom({ tags, override: meta?.energy }),
     priority,
-    urgent,
-    important,
+    lane,
     anchor: isAnchor,
-    quadrant: quadrantOf(urgent, important),
     due: dueDay,
     dueLabel: dueLabel(dueDay, today),
     overdue,
+    dueSoon,
+    ageDays,
+    ageLabel: ageLabel(ageDays),
+    stale: (lane === 'high' || lane === 'med') && ageDays != null && ageDays >= STALE_DAYS,
     sortOrder: task.sortOrder || 0,
     recurring: !!task.repeatFlag,
   };
 }
 
 export function cardFromEmail(thread, meta, cfg) {
-  const important = thread.labelIds?.includes('IMPORTANT') || false;
-  const urgent = true; // starred = someone is waiting on you
   const { effort, guessed } = effortFrom({ tags: [], source: 'email', override: meta?.effort });
   const received = thread.date ? localDay(new Date(thread.date), cfg.tz) : null;
-  let ageLabel = '';
-  if (received) {
-    const days = Math.round((new Date(cfg.today) - new Date(received)) / 86400000);
-    ageLabel = days <= 0 ? 'starred today' : days === 1 ? 'from yesterday' : `waiting ${days} days`;
-  }
+  const ageDays = received ? Math.max(0, daysBetween(received, cfg.today)) : null;
   return {
     id: `gm:${thread.threadId}`,
     source: 'email',
@@ -179,37 +188,46 @@ export function cardFromEmail(thread, meta, cfg) {
     link: `https://mail.google.com/mail/u/0/#all/${thread.threadId}`,
     context: [thread.from, plainSnippet(thread.snippet, 130)].filter(Boolean).join(' — '),
     project: 'Starred',
+    projectId: null,
     column: null,
     tags: [],
     effort,
     effortGuessed: guessed,
     energy: energyFrom({ tags: [], override: meta?.energy }),
+    // Emails have no priority until you give them one (which turns them into TickTick tasks)
     priority: 0,
-    urgent,
-    important,
+    lane: 'none',
+    gmailImportant: thread.labelIds?.includes('IMPORTANT') || false,
     anchor: false,
-    quadrant: quadrantOf(urgent, important),
     due: null,
-    dueLabel: ageLabel,
+    dueLabel: '',
     overdue: false,
+    dueSoon: false,
+    ageDays,
+    ageLabel: ageDays == null ? '' : ageDays < 1 ? 'starred today' : ageDays === 1 ? 'waiting 1 day' : `waiting ${ageDays} days`,
+    stale: false,
     sortOrder: -(thread.internalDate || 0),
     recurring: false,
   };
 }
 
-// Deck order: Eisenhower quadrant → overdue → due date → priority → TickTick order
+// Deck order: lane → overdue → due soon → anchor → due date → oldest first → TickTick order
 export function sortDeck(cards) {
+  const dueKey = (c) => c.due || '9999-12-31';
   return cards.sort((a, b) =>
-    (QUADRANT_RANK[a.quadrant] - QUADRANT_RANK[b.quadrant]) ||
+    (LANE_RANK[a.lane] - LANE_RANK[b.lane]) ||
     (Number(b.overdue) - Number(a.overdue)) ||
-    ((a.due || '9999') < (b.due || '9999') ? -1 : (a.due || '9999') > (b.due || '9999') ? 1 : 0) ||
-    (b.priority - a.priority) ||
+    (Number(b.dueSoon) - Number(a.dueSoon)) ||
+    (Number(b.anchor) - Number(a.anchor)) ||
+    (dueKey(a) < dueKey(b) ? -1 : dueKey(a) > dueKey(b) ? 1 : 0) ||
+    ((b.ageDays ?? -1) - (a.ageDays ?? -1)) ||
     (a.sortOrder - b.sortOrder)
   );
 }
 
-// Used by the client too (duplicated there) — kept here for tests
-export function fitsFilters(card, budget, energy) {
+// Mirrors the client-side filter (kept here for tests)
+export function fitsFilters(card, budget, energy, lane = 'all') {
+  if (lane !== 'all' && card.lane !== lane) return false;
   if (budget && budget !== 'all' && card.effort && EFFORT_MIN[card.effort] > EFFORT_MIN[budget]) return false;
   if (energy && energy !== 'all' && card.energy && ENERGY_RANK[card.energy] > ENERGY_RANK[energy]) return false;
   return true;

@@ -27,11 +27,11 @@
   --green: #16a163;
   --green-s: rgba(22,161,99,.07);
   --red: #dc4a4a;
-  --red-s: rgba(220,74,74,.07);
+  --red-s: rgba(220,74,74,.08);
   --amber: #b07d10;
-  --amber-s: rgba(192,139,26,.09);
-  --teal: #0f8e7e;
-  --teal-s: rgba(15,142,126,.08);
+  --amber-s: rgba(192,139,26,.1);
+  --blue: #3b6fd8;
+  --blue-s: rgba(59,111,216,.08);
   --mono: 'DM Mono', 'SF Mono', ui-monospace, monospace;
   --sans: 'Outfit', -apple-system, system-ui, sans-serif;
   --sh-s: 0 1px 3px rgba(0,0,0,.04);
@@ -44,9 +44,9 @@
     --text: #d9d5cc; --text-dim: #8f8a7f; --text-bright: #f3f0e8;
     --accent: #9d86ff; --accent-s: rgba(157,134,255,.12);
     --green: #3cc486; --green-s: rgba(60,196,134,.1);
-    --red: #f06a6a; --red-s: rgba(240,106,106,.1);
-    --amber: #e0b04a; --amber-s: rgba(224,176,74,.1);
-    --teal: #3bc2b0; --teal-s: rgba(59,194,176,.1);
+    --red: #f06a6a; --red-s: rgba(240,106,106,.12);
+    --amber: #e0b04a; --amber-s: rgba(224,176,74,.12);
+    --blue: #74a0ff; --blue-s: rgba(116,160,255,.12);
     --sh-s: 0 1px 3px rgba(0,0,0,.3); --sh-m: 0 4px 14px rgba(0,0,0,.35);
   }
 }
@@ -57,7 +57,7 @@ a { color:inherit; }
 
 .app { max-width:480px; margin:0 auto; padding:20px 16px 40px; }
 
-.header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; gap:10px; }
+.header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; gap:10px; }
 .header h1 { font-size:22px; font-weight:600; color:var(--text-bright); letter-spacing:-.02em; }
 .header .date { font-family:var(--mono); font-size:11px; color:var(--text-dim); }
 .header-right { display:flex; align-items:center; gap:6px; }
@@ -65,76 +65,113 @@ a { color:inherit; }
 .icon-btn:hover { color:var(--text-bright); }
 .icon-btn.spinning { animation:spin 1s linear infinite; }
 
-.banner { font-family:var(--mono); font-size:11px; padding:10px 12px; border-radius:10px; margin-bottom:12px; background:var(--red-s); color:var(--red); border:1px solid var(--red-s); line-height:1.5; }
+.banner { font-family:var(--mono); font-size:11px; padding:10px 12px; border-radius:10px; margin-bottom:12px; background:var(--red-s); color:var(--red); line-height:1.5; }
 .banner a { font-weight:500; }
 
-/* Filters */
+/* Segmented controls */
 .filter-label { font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-dim); margin:0 0 5px 2px; }
 .seg { display:flex; gap:3px; margin-bottom:12px; background:var(--surface-2); border-radius:10px; padding:3px; }
 .seg-btn { flex:1; padding:9px 0; border:none; border-radius:8px; background:transparent; color:var(--text-dim); font-family:var(--mono); font-size:12px; cursor:pointer; transition:all .2s; }
 .seg-btn:hover { color:var(--text); }
 .seg-btn.active { background:var(--surface); color:var(--text-bright); box-shadow:var(--sh-s); }
+.mode-seg .seg-btn { font-size:13px; padding:10px 0; }
+.mode-seg .count { display:inline-block; min-width:18px; padding:0 5px; margin-left:4px; border-radius:100px; background:var(--surface-3); color:var(--text); font-size:10px; line-height:16px; }
 
-.quad-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin:4px 0 14px; }
-.quad-count { text-align:center; font-family:var(--mono); font-size:10px; padding:6px 0; border-radius:8px; }
-.quad-count b { display:block; font-size:15px; font-weight:500; }
+/* Priority lanes */
+.lane-strip { display:grid; grid-template-columns:repeat(5,1fr); gap:5px; margin:2px 0 8px; }
+.lane { text-align:center; font-family:var(--mono); font-size:10px; padding:7px 0 6px; border-radius:9px; border:1.5px solid transparent; cursor:pointer; background:var(--surface-2); color:var(--text-dim); }
+.lane b { display:block; font-size:16px; font-weight:500; }
+.lane.l-high { background:var(--red-s); color:var(--red); }
+.lane.l-med { background:var(--amber-s); color:var(--amber); }
+.lane.l-low { background:var(--blue-s); color:var(--blue); }
+.lane.active { border-color:currentColor; }
+.lane.l-all.active { border-color:var(--text-bright); color:var(--text-bright); }
+.nudge { font-family:var(--mono); font-size:11px; color:var(--red); background:var(--red-s); border-radius:9px; padding:8px 10px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; gap:8px; line-height:1.4; }
+.nudge button { border:1px solid var(--red); background:transparent; color:var(--red); border-radius:7px; font-family:var(--mono); font-size:10px; padding:5px 8px; cursor:pointer; white-space:nowrap; }
+
+.filters-toggle { font-family:var(--mono); font-size:10px; color:var(--text-dim); background:none; border:none; cursor:pointer; margin:0 0 8px 2px; }
+#filters.collapsed { display:none; }
 
 /* Card stack */
-.card-stack { position:relative; height:356px; margin-bottom:14px; }
-.swipe-card { position:absolute; width:100%; height:340px; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px; cursor:grab; user-select:none; touch-action:pan-y; display:flex; flex-direction:column; box-shadow:var(--sh-m); will-change:transform; }
+.card-stack { position:relative; height:390px; margin-bottom:14px; }
+.card-stack.sort { height:290px; }
+.swipe-card { position:absolute; width:100%; height:374px; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:18px; cursor:grab; user-select:none; touch-action:pan-y; display:flex; flex-direction:column; box-shadow:var(--sh-m); will-change:transform; }
+.card-stack.sort .swipe-card { height:274px; touch-action:none; }
 .swipe-card:active { cursor:grabbing; }
 .swipe-card.entering { z-index:3; }
 .swipe-card.behind-1 { transform:scale(.96) translateY(6px); opacity:.4; pointer-events:none; z-index:2; }
 .swipe-card.behind-1 * { visibility:hidden; }
 .swipe-card.behind-2 { transform:scale(.92) translateY(12px); opacity:.2; pointer-events:none; z-index:1; }
 .swipe-card.behind-2 * { visibility:hidden; }
-.swipe-card.q-do { border-top:3px solid var(--red); }
-.swipe-card.q-schedule { border-top:3px solid var(--accent); }
-.swipe-card.q-delegate { border-top:3px solid var(--teal); }
+.swipe-card.p-high { border-top:3px solid var(--red); }
+.swipe-card.p-med { border-top:3px solid var(--amber); }
+.swipe-card.p-low { border-top:3px solid var(--blue); }
 
-.swipe-indicator { position:absolute; top:16px; font-family:var(--mono); font-size:13px; font-weight:500; letter-spacing:.08em; text-transform:uppercase; padding:4px 14px; border-radius:8px; opacity:0; pointer-events:none; }
-.swipe-right { right:16px; color:var(--green); border:2px solid var(--green); background:var(--surface); }
-.swipe-left { left:16px; color:var(--red); border:2px solid var(--red); background:var(--surface); }
+.ind { position:absolute; font-family:var(--mono); font-size:13px; font-weight:500; letter-spacing:.08em; text-transform:uppercase; padding:4px 12px; border-radius:8px; opacity:0; pointer-events:none; background:var(--surface); border:2px solid; z-index:2; }
+.ind-right { top:14px; right:14px; color:var(--green); }
+.ind-left { top:14px; left:14px; color:var(--text-dim); }
+.sort .ind-right { color:var(--amber); }
+.ind-up { top:14px; left:50%; transform:translateX(-50%); color:var(--red); }
+.ind-down { bottom:14px; left:50%; transform:translateX(-50%); color:var(--blue); }
 
-.card-top { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+.card-top { display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-bottom:11px; }
 .pill { font-family:var(--mono); font-size:9px; letter-spacing:.07em; text-transform:uppercase; padding:3px 8px; border-radius:100px; white-space:nowrap; }
 .pill-source { background:var(--surface-2); color:var(--text-dim); }
 .pill-email { background:var(--red-s); color:var(--red); }
-.pill-do { background:var(--red-s); color:var(--red); }
-.pill-schedule { background:var(--accent-s); color:var(--accent); }
-.pill-delegate { background:var(--teal-s); color:var(--teal); }
-.pill-later { background:var(--surface-2); color:var(--text-dim); }
+.pill-high { background:var(--red); color:#fff; }
+.pill-med { background:var(--amber); color:#fff; }
+.pill-low { background:var(--blue); color:#fff; }
+.pill-none { background:var(--surface-2); color:var(--text-dim); border:1px dashed var(--border-b); }
 .pill-due { background:var(--amber-s); color:var(--amber); }
-.pill-overdue { background:var(--red); color:#fff; }
+.pill-overdue { background:var(--red-s); color:var(--red); font-weight:500; }
 .pill-anchor { background:var(--text-bright); color:var(--bg); }
+.pill-stale { background:var(--surface-2); color:var(--red); }
 
 .card-title { font-size:18px; font-weight:500; line-height:1.35; color:var(--text-bright); letter-spacing:-.01em; overflow:hidden; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; }
-.card-context { font-size:12.5px; color:var(--text-dim); line-height:1.5; margin-top:8px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
-.card-link { display:inline-block; margin-top:8px; font-family:var(--mono); font-size:11px; color:var(--accent); text-decoration:none; }
+.card-context { font-size:12.5px; color:var(--text-dim); line-height:1.5; margin-top:7px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
+.card-meta { font-family:var(--mono); font-size:10px; color:var(--text-dim); margin-top:7px; }
+.card-link { display:inline-block; margin-top:7px; font-family:var(--mono); font-size:11px; color:var(--accent); text-decoration:none; }
 .card-spacer { flex:1; }
 
-.chips { display:flex; align-items:center; gap:4px; margin-top:8px; }
-.chips-label { font-family:var(--mono); font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-dim); width:48px; }
+.chips { display:flex; align-items:center; gap:4px; margin-top:7px; }
+.chips-label { font-family:var(--mono); font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-dim); width:52px; flex:none; }
 .chip { flex:1; padding:6px 0; border-radius:8px; border:1px solid var(--border); background:transparent; color:var(--text-dim); font-family:var(--mono); font-size:11px; cursor:pointer; }
 .chip.on { background:var(--text-bright); color:var(--bg); border-color:var(--text-bright); }
 .chip.guess { border-style:dashed; border-color:var(--text-dim); color:var(--text); }
+.chip.pc-high.on { background:var(--red); border-color:var(--red); color:#fff; }
+.chip.pc-med.on { background:var(--amber); border-color:var(--amber); color:#fff; }
+.chip.pc-low.on { background:var(--blue); border-color:var(--blue); color:#fff; }
 
-/* Action buttons */
+/* Do-mode actions */
 .swipe-actions { display:flex; justify-content:center; gap:12px; margin-bottom:8px; }
 .act { display:flex; flex-direction:column; align-items:center; gap:4px; }
 .act span { font-family:var(--mono); font-size:9px; color:var(--text-dim); letter-spacing:.05em; }
-.swipe-action-btn { width:52px; height:52px; border-radius:50%; border:1px solid var(--border-b); background:var(--surface); color:var(--text-dim); font-size:18px; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; box-shadow:var(--sh-s); }
-.swipe-action-btn:hover { transform:scale(1.08); }
-.swipe-action-btn.accept { color:var(--green); }
-.swipe-action-btn.accept:hover { background:var(--green-s); border-color:var(--green); }
-.swipe-action-btn.reject { color:var(--red); }
-.swipe-action-btn.reject:hover { background:var(--red-s); border-color:var(--red); }
-.swipe-action-btn.delegate { color:var(--accent); }
-.swipe-action-btn.delegate:hover { background:var(--accent-s); border-color:var(--accent); }
-.swipe-action-btn.two { color:var(--amber); font-family:var(--mono); font-size:13px; font-weight:500; }
-.swipe-action-btn.two:hover { background:var(--amber-s); border-color:var(--amber); }
+.round-btn { width:52px; height:52px; border-radius:50%; border:1px solid var(--border-b); background:var(--surface); color:var(--text-dim); font-size:18px; cursor:pointer; transition:transform .15s, background .15s; display:flex; align-items:center; justify-content:center; box-shadow:var(--sh-s); }
+.round-btn:hover { transform:scale(1.08); }
+.round-btn.accept { color:var(--green); }
+.round-btn.reject { color:var(--text-dim); }
+.round-btn.delegate { color:var(--accent); }
+.round-btn.two { color:var(--amber); font-family:var(--mono); font-size:13px; font-weight:500; }
+.round-btn.p-high { color:var(--red); }
+.round-btn.p-med { color:var(--amber); }
+.round-btn.p-low { color:var(--blue); }
+.round-btn.small { width:42px; height:42px; font-size:16px; font-family:var(--mono); }
 
-.card-hint { font-family:var(--mono); font-size:10px; color:var(--text-dim); text-align:center; opacity:.7; margin-bottom:16px; }
+/* Sort-mode control pad */
+.sort-head { display:flex; justify-content:space-between; align-items:baseline; margin:0 2px 10px; }
+.sort-head h2 { font-size:15px; font-weight:600; color:var(--text-bright); }
+.sort-head span { font-family:var(--mono); font-size:11px; color:var(--text-dim); }
+.pad { display:grid; grid-template-columns:repeat(3, 1fr); grid-template-rows:auto auto auto; gap:6px 10px; justify-items:center; align-items:center; max-width:300px; margin:0 auto 10px; }
+.pad .act span { font-size:9px; }
+.pad .up { grid-column:2; grid-row:1; }
+.pad .left { grid-column:1; grid-row:2; }
+.pad .mid { grid-column:2; grid-row:2; }
+.pad .right { grid-column:3; grid-row:2; }
+.pad .down { grid-column:2; grid-row:3; }
+.undo-btn { display:block; margin:0 auto 12px; border:1px solid var(--border-b); background:var(--surface); color:var(--text); font-family:var(--mono); font-size:11px; padding:7px 14px; border-radius:100px; cursor:pointer; }
+.undo-btn[hidden] { display:none; }
+
+.card-hint { font-family:var(--mono); font-size:10px; color:var(--text-dim); text-align:center; opacity:.75; margin-bottom:14px; line-height:1.5; }
 
 /* Sprint queue */
 .sprint-queue-bar { display:flex; gap:6px; padding:8px 12px; margin-bottom:8px; background:var(--surface); border:1px solid var(--green); border-radius:10px; align-items:center; font-family:var(--mono); font-size:11px; animation:cardIn .3s ease; }
@@ -221,33 +258,58 @@ a { color:inherit; }
 
   <div id="banner"></div>
 
-  <div id="swipe-view">
-    <div class="filter-label">time I have</div>
-    <div class="seg" id="budget-bar">
-      <button class="seg-btn" data-v="10min" onclick="setBudget('10min')">10 min</button>
-      <button class="seg-btn" data-v="30min" onclick="setBudget('30min')">30 min</button>
-      <button class="seg-btn" data-v="60min" onclick="setBudget('60min')">60 min</button>
-      <button class="seg-btn" data-v="all" onclick="setBudget('all')">any</button>
-    </div>
-    <div class="filter-label">energy I have</div>
-    <div class="seg" id="energy-bar">
-      <button class="seg-btn" data-v="low" onclick="setEnergy('low')">low</button>
-      <button class="seg-btn" data-v="med" onclick="setEnergy('med')">medium</button>
-      <button class="seg-btn" data-v="high" onclick="setEnergy('high')">high</button>
-      <button class="seg-btn" data-v="all" onclick="setEnergy('all')">any</button>
+  <div class="seg mode-seg" id="mode-bar">
+    <button class="seg-btn" data-v="do" onclick="setMode('do')">Do</button>
+    <button class="seg-btn" data-v="sort" onclick="setMode('sort')">Sort<span class="count" id="unsorted-count">0</span></button>
+  </div>
+
+  <!-- ─────────── DO MODE ─────────── -->
+  <div id="do-view">
+    <div class="lane-strip" id="lane-strip"></div>
+    <div id="nudge"></div>
+
+    <button class="filters-toggle" id="filters-toggle" onclick="toggleFilters()"></button>
+    <div id="filters">
+      <div class="filter-label">time I have</div>
+      <div class="seg" id="budget-bar">
+        <button class="seg-btn" data-v="10min" onclick="setBudget('10min')">10 min</button>
+        <button class="seg-btn" data-v="30min" onclick="setBudget('30min')">30 min</button>
+        <button class="seg-btn" data-v="60min" onclick="setBudget('60min')">60 min</button>
+        <button class="seg-btn" data-v="all" onclick="setBudget('all')">any</button>
+      </div>
+      <div class="filter-label">energy I have</div>
+      <div class="seg" id="energy-bar">
+        <button class="seg-btn" data-v="low" onclick="setEnergy('low')">low</button>
+        <button class="seg-btn" data-v="med" onclick="setEnergy('med')">medium</button>
+        <button class="seg-btn" data-v="high" onclick="setEnergy('high')">high</button>
+        <button class="seg-btn" data-v="all" onclick="setEnergy('all')">any</button>
+      </div>
     </div>
 
-    <div class="quad-strip" id="quad-strip"></div>
-
-    <div class="card-stack" id="card-stack"></div>
+    <div class="card-stack" id="do-stack"></div>
     <div class="swipe-actions">
-      <div class="act"><button class="swipe-action-btn reject" onclick="skipCard()" title="Skip until tomorrow (←)">&#10005;</button><span>skip</span></div>
-      <div class="act"><button class="swipe-action-btn delegate" onclick="openDelegate()" title="Delegate to Claude (d)">&#9889;</button><span>claude</span></div>
-      <div class="act"><button class="swipe-action-btn two" onclick="startTwoMinutes()" title="Just 2 minutes (2)">2m</button><span>just start</span></div>
-      <div class="act"><button class="swipe-action-btn accept" onclick="acceptCard()" title="Queue for sprint (→)">&#10003;</button><span>queue</span></div>
+      <div class="act"><button class="round-btn reject" onclick="skipCard()" title="Skip until tomorrow (←)">&#10005;</button><span>skip</span></div>
+      <div class="act"><button class="round-btn delegate" onclick="openDelegate()" title="Delegate to Claude (d)">&#9889;</button><span>claude</span></div>
+      <div class="act"><button class="round-btn two" onclick="startTwoMinutes()" title="Just 2 minutes (2)">2m</button><span>just start</span></div>
+      <div class="act"><button class="round-btn accept" onclick="acceptCard()" title="Queue for sprint (→)">&#10003;</button><span>queue</span></div>
     </div>
-    <div class="card-hint" id="card-hint"></div>
+    <div class="card-hint" id="do-hint"></div>
     <div id="sprint-queue"></div>
+  </div>
+
+  <!-- ─────────── SORT MODE ─────────── -->
+  <div id="sort-view" style="display:none">
+    <div class="sort-head"><h2>Give each task a priority</h2><span id="sort-left"></span></div>
+    <div class="card-stack sort" id="sort-stack"></div>
+    <div class="pad">
+      <div class="act up"><button class="round-btn p-high" onclick="sortAs('high')" title="High (↑)">&#8593;</button><span>high</span></div>
+      <div class="act left"><button class="round-btn" onclick="sortAs('someday')" title="Someday (←)">&#8592;</button><span>someday</span></div>
+      <div class="act mid"><button class="round-btn small" onclick="sortSkip()" title="Decide later (space)">?</button><span>not sure</span></div>
+      <div class="act right"><button class="round-btn p-med" onclick="sortAs('med')" title="Medium (→)">&#8594;</button><span>medium</span></div>
+      <div class="act down"><button class="round-btn p-low" onclick="sortAs('low')" title="Low (↓)">&#8595;</button><span>low</span></div>
+    </div>
+    <button class="undo-btn" id="undo-btn" onclick="undo()" hidden>&#8630; undo</button>
+    <div class="card-hint">swipe up = high · right = medium · down = low · left = someday<br>priority is saved to TickTick right away</div>
   </div>
 
   <!-- Sprint mode -->
@@ -298,7 +360,7 @@ a { color:inherit; }
 <div class="meta-modal" id="meta-modal">
   <div class="meta-box">
     <h3 id="modal-title">How did you do it?</h3>
-    <div class="meta-subtitle" id="modal-sub">Capture your method so the system learns your patterns</div>
+    <div class="meta-subtitle" id="modal-sub"></div>
     <textarea id="meta-notes"></textarea>
     <div class="meta-actions">
       <button class="meta-btn" id="modal-cancel">skip</button>
@@ -310,36 +372,58 @@ a { color:inherit; }
 <script>
 const EFFORT_MIN = { '10min': 10, '30min': 30, '60min': 60 };
 const ENERGY_RANK = { low: 1, med: 2, high: 3 };
-const Q_LABEL = { do: 'Do now', schedule: 'Schedule', delegate: 'Quick / hand off', later: 'Later' };
-const Q_SHORT = { do: 'Do', schedule: 'Plan', delegate: 'Quick', later: 'Later' };
+const LANE_RANK = { high: 0, med: 1, low: 2, none: 3 };
+const LANE_PRIORITY = { high: 5, med: 3, low: 1, none: 0 };
+const LANE_NAME = { high: 'High', med: 'Medium', low: 'Low', none: 'No priority' };
+const LANE_SHORT = { all: 'All', high: 'High', med: 'Med', low: 'Low', none: 'None' };
 
 let allTasks = [];
+let sprintSize = 3;
+let highLimit = 5;
+let mode = pref('mode', 'do');
+let lane = pref('lane', 'all');
+let budget = pref('budget', 'all');
+let energy = pref('energy', 'all');
+let filtersOpen = pref('filters', '0') === '1';
+
+// Do mode
 let deck = [];
 let deckIdx = 0;
-let sprintSize = 3;
-let budget = pref('budget', '30min');
-let energy = pref('energy', 'all');
-const actioned = new Set();     // ids handled this visit
+const actioned = new Set();     // handled this visit in Do mode
 let sprintQueue = [];
-let sprintIdx = 0;
-let sprintTimer = null;
-let sprintSeconds = 0;
-let sessionId = null;
-let taskStart = null;
-let sprintCompleted = 0;
+let sprintIdx = 0, sprintTimer = null, sprintSeconds = 0, sessionId = null, taskStart = null, sprintCompleted = 0;
 let twoTask = null, twoTimer = null, twoLeft = 120, twoSession = null;
+
+// Sort mode
+let sortDeck = [];
+let sortIdx = 0;
+const sortSkipped = new Set();
+const undoStack = [];
+let busy = false;
 
 // ── Init ──
 document.getElementById('date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 markSeg('budget-bar', budget);
 markSeg('energy-bar', energy);
+markSeg('mode-bar', mode);
+applyFiltersOpen();
+showMode(null);
 loadDeck();
 loadStats();
 
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   if (document.getElementById('meta-modal').classList.contains('active')) return;
-  if (document.getElementById('swipe-view').style.display === 'none') return;
+  if (overlayActive()) return;
+  if (mode === 'sort') {
+    if (e.key === 'ArrowUp') { e.preventDefault(); animOut('up', () => sortAs('high', true)); }
+    else if (e.key === 'ArrowRight') animOut('right', () => sortAs('med', true));
+    else if (e.key === 'ArrowDown') { e.preventDefault(); animOut('down', () => sortAs('low', true)); }
+    else if (e.key === 'ArrowLeft') animOut('left', () => sortAs('someday', true));
+    else if (e.key === ' ') { e.preventDefault(); sortSkip(); }
+    else if (e.key === 'z') undo();
+    return;
+  }
   if (e.key === 'ArrowRight') animOut('right', acceptCard);
   else if (e.key === 'ArrowLeft') animOut('left', skipCard);
   else if (e.key === 'd') openDelegate();
@@ -360,42 +444,72 @@ async function api(path, data) {
   return out;
 }
 
-// ── Filters ──
+// ── Modes & filters ──
 function markSeg(id, v) {
   document.querySelectorAll(`#${id} .seg-btn`).forEach((b) => b.classList.toggle('active', b.dataset.v === v));
 }
+function setMode(m) {
+  mode = m; savePref('mode', m); markSeg('mode-bar', m);
+  showMode(null);
+  if (m === 'sort') rebuildSort(); else rebuildDeck();
+}
+function setLane(l) { lane = l; savePref('lane', l); rebuildDeck(); }
 function setBudget(b) { budget = b; savePref('budget', b); markSeg('budget-bar', b); rebuildDeck(); }
 function setEnergy(e) { energy = e; savePref('energy', e); markSeg('energy-bar', e); rebuildDeck(); }
+function toggleFilters() { filtersOpen = !filtersOpen; savePref('filters', filtersOpen ? '1' : '0'); applyFiltersOpen(); }
+function applyFiltersOpen() {
+  document.getElementById('filters').classList.toggle('collapsed', !filtersOpen);
+  const bits = [budget !== 'all' ? `≤${budget}` : null, energy !== 'all' ? `${energy} energy` : null].filter(Boolean);
+  document.getElementById('filters-toggle').textContent =
+    (filtersOpen ? '▾ ' : '▸ ') + 'time & energy' + (bits.length ? ` · ${bits.join(' · ')}` : '');
+}
 
 function fits(t) {
+  if (lane !== 'all' && t.lane !== lane) return false;
   if (budget !== 'all' && t.effort && EFFORT_MIN[t.effort] > EFFORT_MIN[budget]) return false;
   if (energy !== 'all' && t.energy && ENERGY_RANK[t.energy] > ENERGY_RANK[energy]) return false;
   return true;
 }
 
+function laneSort(list) {
+  const dueKey = (c) => c.due || '9999-12-31';
+  return list.sort((a, b) =>
+    (LANE_RANK[a.lane] - LANE_RANK[b.lane]) ||
+    (Number(b.overdue) - Number(a.overdue)) ||
+    (Number(b.dueSoon) - Number(a.dueSoon)) ||
+    (Number(b.anchor) - Number(a.anchor)) ||
+    (dueKey(a) < dueKey(b) ? -1 : dueKey(a) > dueKey(b) ? 1 : 0) ||
+    ((b.ageDays ?? -1) - (a.ageDays ?? -1)));
+}
+
 function rebuildDeck() {
+  laneSort(allTasks);
   deck = allTasks.filter((t) => !actioned.has(t.id) && fits(t));
   deckIdx = 0;
-  renderQuadStrip();
-  renderCards();
+  applyFiltersOpen();
+  renderLanes();
+  renderDoCards();
   renderHint();
-  document.getElementById('s-pending').textContent = deck.length;
+  updateCounts();
 }
 
 // ── Load ──
 async function loadDeck(manual) {
   const btn = document.getElementById('refresh-btn');
   btn.classList.add('spinning');
-  if (!allTasks.length) document.getElementById('card-stack').innerHTML = '<div class="empty-deck">Loading your tasks…</div>';
+  if (!allTasks.length) document.getElementById(mode === 'sort' ? 'sort-stack' : 'do-stack').innerHTML = '<div class="empty-deck">Loading your tasks…</div>';
   try {
     const r = await api('/api/tasks');
     allTasks = r.tasks || [];
     sprintSize = r.sprintSize || 3;
+    highLimit = r.highLimit || 5;
     renderBanner(r.sources || {});
-    rebuildDeck();
+    sortSkipped.clear();
+    if (mode === 'sort') rebuildSort(); else rebuildDeck();
+    updateCounts();
     if (manual) showToast('Refreshed');
   } catch (e) {
-    document.getElementById('card-stack').innerHTML = `<div class="empty-deck"><div class="empty-emoji">&#128546;</div>Couldn't load tasks.<br><small>${esc(e.message)}</small></div>`;
+    document.getElementById(mode === 'sort' ? 'sort-stack' : 'do-stack').innerHTML = `<div class="empty-deck"><div class="empty-emoji">&#128546;</div>Couldn't load tasks.<br><small>${esc(e.message)}</small></div>`;
   } finally {
     btn.classList.remove('spinning');
   }
@@ -412,64 +526,134 @@ function renderBanner(sources) {
   document.getElementById('banner').innerHTML = msgs.length ? `<div class="banner">${msgs.join('<br>')}</div>` : '';
 }
 
-function renderQuadStrip() {
-  const counts = { do: 0, schedule: 0, delegate: 0, later: 0 };
-  deck.forEach((t) => counts[t.quadrant]++);
-  const style = { do: 'pill-do', schedule: 'pill-schedule', delegate: 'pill-delegate', later: 'pill-later' };
-  document.getElementById('quad-strip').innerHTML = Object.keys(counts).map((q) =>
-    `<div class="quad-count ${style[q]}" title="${Q_LABEL[q]}"><b>${counts[q]}</b>${Q_SHORT[q]}</div>`).join('');
+function laneCounts() {
+  // Counts reflect everything open (not the time/energy filters) so the numbers are stable
+  const c = { all: 0, high: 0, med: 0, low: 0, none: 0 };
+  allTasks.forEach((t) => { if (!actioned.has(t.id)) { c[t.lane]++; c.all++; } });
+  return c;
+}
+
+function renderLanes() {
+  const c = laneCounts();
+  document.getElementById('lane-strip').innerHTML = ['all', 'high', 'med', 'low', 'none'].map((l) =>
+    `<button class="lane l-${l} ${lane === l ? 'active' : ''}" onclick="setLane('${l}')"><b>${c[l]}</b>${LANE_SHORT[l]}</button>`).join('');
+  const nudge = document.getElementById('nudge');
+  if (c.high > highLimit) {
+    nudge.innerHTML = `<div class="nudge"><span>${c.high} High. When everything's High, nothing is — aim for ${highLimit} or fewer.</span>
+      ${lane === 'high' ? '' : `<button onclick="setLane('high')">review Highs</button>`}</div>`;
+  } else nudge.innerHTML = '';
+}
+
+function updateCounts() {
+  const unsorted = allTasks.filter((t) => t.lane === 'none').length;
+  document.getElementById('unsorted-count').textContent = unsorted;
+  document.getElementById('s-pending').textContent = mode === 'sort'
+    ? Math.max(0, sortDeck.length - sortIdx)
+    : Math.max(0, deck.length - deckIdx);
 }
 
 function renderHint() {
   const left = Math.max(0, sprintSize - sprintQueue.length);
-  document.getElementById('card-hint').textContent = sprintQueue.length
+  document.getElementById('do-hint').textContent = sprintQueue.length
     ? `queue ${left} more to auto-start, or start now`
     : `swipe right to queue · left to skip until tomorrow`;
   const tags = [budget !== 'all' ? budget : null, energy !== 'all' ? `energy-${energy}` : null].filter(Boolean);
   document.getElementById('add-hint').textContent = tags.length ? `will be tagged: ${tags.join(', ')}` : '';
 }
 
-// ── Cards ──
-function renderCards() {
-  const stack = document.getElementById('card-stack');
-  if (deckIdx >= deck.length) {
-    const hiddenByFilter = allTasks.filter((t) => !actioned.has(t.id) && !fits(t)).length;
-    stack.innerHTML = `<div class="empty-deck"><div class="empty-emoji">&#10024;</div>
-      ${allTasks.length ? 'Deck cleared. Nice work.' : 'Nothing here yet.'}
-      ${hiddenByFilter ? `<br><small>${hiddenByFilter} more hidden by your time/energy filters</small><br><button class="btn small" onclick="setBudget('all');setEnergy('all')">show everything</button>` : ''}</div>`;
-    return;
-  }
+// ── Card rendering (shared) ──
+function cardHtml(t, cls, opts = {}) {
+  const srcPill = t.source === 'email'
+    ? '<span class="pill pill-email">&#9733; email</span>'
+    : `<span class="pill pill-source">${esc(t.project)}${t.column ? ' · ' + esc(t.column) : ''}</span>`;
+  const prio = `<span class="pill pill-${t.lane}">${LANE_NAME[t.lane]}</span>`;
+  const due = t.dueLabel ? `<span class="pill ${t.overdue ? 'pill-overdue' : 'pill-due'}">${esc(t.dueLabel)}</span>` : '';
+  const anchor = t.anchor ? '<span class="pill pill-anchor">anchor</span>' : '';
+  const stale = t.stale ? `<span class="pill pill-stale">${esc(t.ageLabel)}</span>` : '';
+  const age = !t.stale && t.ageLabel ? `<div class="card-meta">${esc(t.ageLabel)}${t.gmailImportant ? ' · Gmail says important' : ''}</div>` : '';
+  const indicators = opts.sort
+    ? `<span class="ind ind-up">High</span><span class="ind ind-right">Medium</span><span class="ind ind-down">Low</span><span class="ind ind-left">Someday</span>`
+    : `<span class="ind ind-right">Queue</span><span class="ind ind-left">Skip</span>`;
+  return `<div class="swipe-card p-${t.lane} ${cls}" data-id="${esc(t.id)}">
+    ${indicators}
+    <div class="card-top">${prio}${anchor}${due}${stale}${srcPill}</div>
+    <div class="card-title">${esc(t.title)}</div>
+    ${t.context ? `<div class="card-context">${esc(t.context)}</div>` : ''}
+    ${age}
+    ${t.link ? `<a class="card-link" href="${esc(t.link)}" target="_blank" rel="noopener">open ${t.source === 'email' || /mail\.google/.test(t.link) ? 'email' : 'link'} &#8599;</a>` : ''}
+    <div class="card-spacer"></div>
+    ${opts.sort ? '' : chipRows(t)}
+  </div>`;
+}
+
+function chipRows(t) {
+  const prioChips = ['high', 'med', 'low', 'none'].map((l) =>
+    `<button class="chip pc-${l} ${t.lane === l ? 'on' : ''}" onclick="setPriority('${l}')">${l === 'none' ? '–' : LANE_SHORT[l]}</button>`).join('');
+  return `<div class="chips"><span class="chips-label">priority</span>${prioChips}</div>` +
+    chipRow('time', ['10min', '30min', '60min'], ['10m', '30m', '60m'], t.effort, t.effortGuessed) +
+    chipRow('energy', ['low', 'med', 'high'], ['low', 'med', 'high'], t.energy, false);
+}
+
+function chipRow(kind, values, labels, current, guessed) {
+  return `<div class="chips"><span class="chips-label">${kind}</span>${values.map((v, i) =>
+    `<button class="chip ${current === v ? (guessed ? 'guess' : 'on') : ''}" onclick="setMeta('${kind}','${v}')">${labels[i]}</button>`).join('')}</div>`;
+}
+
+function renderStack(stackId, list, idx, opts) {
+  const stack = document.getElementById(stackId);
   let out = '';
-  for (let i = 0; i < 3 && deckIdx + i < deck.length; i++) {
-    const t = deck[deckIdx + i];
-    const cls = i === 0 ? 'entering' : i === 1 ? 'behind-1' : 'behind-2';
-    const srcPill = t.source === 'email'
-      ? '<span class="pill pill-email">&#9733; email</span>'
-      : `<span class="pill pill-source">${esc(t.project)}${t.column ? ' · ' + esc(t.column) : ''}</span>`;
-    const due = t.dueLabel ? `<span class="pill ${t.overdue ? 'pill-overdue' : 'pill-due'}">${esc(t.dueLabel)}</span>` : '';
-    const anchor = t.anchor ? '<span class="pill pill-anchor">anchor</span>' : '';
-    out += `<div class="swipe-card q-${t.quadrant} ${cls}" data-id="${esc(t.id)}">
-      <span class="swipe-indicator swipe-right">Queue</span>
-      <span class="swipe-indicator swipe-left">Skip</span>
-      <div class="card-top">
-        <span class="pill pill-${t.quadrant}">${Q_LABEL[t.quadrant]}</span>${anchor}${due}${srcPill}
-      </div>
-      <div class="card-title">${esc(t.title)}</div>
-      ${t.context ? `<div class="card-context">${esc(t.context)}</div>` : ''}
-      ${t.link ? `<a class="card-link" href="${esc(t.link)}" target="_blank" rel="noopener">open ${t.source === 'email' || /mail\.google/.test(t.link) ? 'email' : 'link'} &#8599;</a>` : ''}
-      <div class="card-spacer"></div>
-      ${chipRow(t, 'time', ['10min', '30min', '60min'], ['10m', '30m', '60m'], t.effort, t.effortGuessed)}
-      ${chipRow(t, 'energy', ['low', 'med', 'high'], ['low', 'med', 'high'], t.energy, false)}
-    </div>`;
+  for (let i = 0; i < 3 && idx + i < list.length; i++) {
+    out += cardHtml(list[idx + i], i === 0 ? 'entering' : i === 1 ? 'behind-1' : 'behind-2', opts);
   }
   stack.innerHTML = out;
   const top = stack.querySelector('.swipe-card.entering');
-  if (top) initSwipe(top);
+  if (top) initSwipe(top, opts.sort ? 'sort' : 'do');
 }
 
-function chipRow(t, kind, values, labels, current, guessed) {
-  return `<div class="chips"><span class="chips-label">${kind}</span>${values.map((v, i) =>
-    `<button class="chip ${current === v ? (guessed ? 'guess' : 'on') : ''}" onclick="setMeta('${kind}','${v}')">${labels[i]}</button>`).join('')}</div>`;
+function renderDoCards() {
+  const stack = document.getElementById('do-stack');
+  if (deckIdx >= deck.length) {
+    const hidden = allTasks.filter((t) => !actioned.has(t.id) && !fits(t)).length;
+    stack.innerHTML = `<div class="empty-deck"><div class="empty-emoji">&#10024;</div>
+      ${allTasks.length ? (lane !== 'all' ? `No more ${LANE_NAME[lane]} tasks here.` : 'Deck cleared. Nice work.') : 'Nothing here yet.'}
+      ${hidden ? `<br><small>${hidden} more hidden by your filters</small><br><button class="btn small" onclick="lane='all';savePref('lane','all');setBudget('all');setEnergy('all')">show everything</button>` : ''}</div>`;
+    return;
+  }
+  renderStack('do-stack', deck, deckIdx, {});
+}
+
+// ── Priority from a card (Do mode) ──
+async function setPriority(newLane) {
+  const t = deck[deckIdx];
+  if (!t || busy || t.lane === newLane) return;
+  const prevLane = t.lane;
+  const updated = await changePriority(t, newLane);
+  if (!updated) return;
+  showToast(t.source === 'email' ? `Now a ${LANE_NAME[newLane]} TickTick task` : `${LANE_NAME[prevLane]} → ${LANE_NAME[newLane]}`);
+  deck[deckIdx] = updated;
+  renderDoCards();
+  renderLanes();
+  updateCounts();
+}
+
+// Calls the API, swaps the card in allTasks, returns the updated card
+async function changePriority(t, newLane) {
+  busy = true;
+  try {
+    const r = await api('/api/priority', { task_id: t.id, priority: LANE_PRIORITY[newLane], task: slim(t) });
+    const next = r.converted
+      ? { ...r.card, context: t.context, effort: t.effort, effortGuessed: t.effortGuessed, energy: t.energy }
+      : { ...t, priority: LANE_PRIORITY[newLane], lane: newLane, stale: r.card ? r.card.stale : false };
+    const i = allTasks.findIndex((x) => x.id === t.id);
+    if (i >= 0) allTasks[i] = next;
+    if (actioned.has(t.id)) { actioned.delete(t.id); actioned.add(next.id); }
+    return next;
+  } catch (e) {
+    showToast(e.message, true);
+    return null;
+  } finally {
+    busy = false;
+  }
 }
 
 async function setMeta(kind, value) {
@@ -480,42 +664,139 @@ async function setMeta(kind, value) {
   const next = same ? null : value;
   t[field] = next;
   if (field === 'effort') t.effortGuessed = false;
-  renderCards();
+  renderDoCards();
   try { await api('/api/meta', { task_id: t.id, [field]: next }); }
   catch (e) { showToast(e.message, true); }
 }
 
+// ── Sort mode ──
+function rebuildSort() {
+  sortDeck = allTasks.filter((t) => t.lane === 'none' && !sortSkipped.has(t.id));
+  sortIdx = 0;
+  renderSortCards();
+}
+
+function renderSortCards() {
+  const left = Math.max(0, sortDeck.length - sortIdx);
+  document.getElementById('sort-left').textContent = left ? `${left} left` : '';
+  document.getElementById('undo-btn').hidden = !undoStack.length;
+  updateCounts();
+  const stack = document.getElementById('sort-stack');
+  if (sortIdx >= sortDeck.length) {
+    const skipped = sortSkipped.size;
+    stack.innerHTML = `<div class="empty-deck"><div class="empty-emoji">&#127881;</div>Everything has a priority.
+      ${skipped ? `<br><small>${skipped} set aside for later</small><br><button class="btn small" onclick="sortSkipped.clear();rebuildSort()">go through those</button>` : ''}
+      <br><button class="btn small" onclick="setMode('do')">start doing</button></div>`;
+    return;
+  }
+  renderStack('sort-stack', sortDeck, sortIdx, { sort: true });
+}
+
+async function sortAs(target, alreadyAnimated) {
+  const t = sortDeck[sortIdx];
+  if (!t || busy) return;
+  if (!alreadyAnimated) {
+    const dir = { high: 'up', med: 'right', low: 'down', someday: 'left' }[target];
+    await new Promise((res) => animOut(dir, res));
+  }
+  sortIdx++;
+  renderSortCards();
+
+  if (target === 'someday') {
+    busy = true;
+    try {
+      const r = await api('/api/someday', { task_id: t.id, task: slim(t) });
+      allTasks = allTasks.filter((x) => x.id !== t.id);
+      if (r.undoable) undoStack.push({ kind: 'someday', card: t, resp: r });
+      showToast(r.converted ? 'Saved to Someday and unstarred' : r.moved ? 'Moved to Someday' : 'Tagged "someday"');
+    } catch (e) {
+      showToast(e.message, true);
+      sortIdx--; renderSortCards();
+    } finally { busy = false; }
+  } else {
+    const updated = await changePriority(t, target);
+    if (!updated) { sortIdx--; renderSortCards(); return; }
+    undoStack.push({ kind: 'priority', card: updated, prevLane: 'none', original: t });
+    if (t.source === 'email') showToast(`Now a ${LANE_NAME[target]} TickTick task · email unstarred`);
+  }
+  document.getElementById('undo-btn').hidden = !undoStack.length;
+  updateCounts();
+}
+
+function sortSkip() {
+  const t = sortDeck[sortIdx];
+  if (!t) return;
+  animOut('left-soft', () => { sortSkipped.add(t.id); sortIdx++; renderSortCards(); });
+}
+
+async function undo() {
+  const u = undoStack.pop();
+  if (!u || busy) { document.getElementById('undo-btn').hidden = !undoStack.length; return; }
+  busy = true;
+  try {
+    if (u.kind === 'priority') {
+      await api('/api/priority', { task_id: u.card.id, priority: 0, task: slim(u.card) });
+      const back = { ...u.card, priority: 0, lane: 'none', stale: false };
+      const i = allTasks.findIndex((x) => x.id === u.card.id);
+      if (i >= 0) allTasks[i] = back; else allTasks.push(back);
+      sortDeck.splice(sortIdx, 0, back);
+    } else {
+      await api('/api/someday/undo', u.resp.moved ? { new_id: u.resp.new_id, from: u.resp.from } : { task_id: u.card.id });
+      allTasks.push(u.card);
+      sortDeck.splice(sortIdx, 0, u.card);
+    }
+    showToast('Undone');
+  } catch (e) {
+    showToast(e.message, true);
+  } finally {
+    busy = false;
+    renderSortCards();
+  }
+}
+
 // ── Swipe physics ──
-function initSwipe(card) {
-  let startX = 0, startY = 0, dx = 0, dragging = false, decided = false, horizontal = false;
+function initSwipe(card, kind) {
+  let sx = 0, sy = 0, dx = 0, dy = 0, dragging = false, axis = null;
+  const ind = (sel) => card.querySelector(sel);
   const onStart = (e) => {
     if (['TEXTAREA', 'BUTTON', 'A'].includes(e.target.tagName)) return;
-    dragging = true; decided = false; horizontal = false; dx = 0;
+    dragging = true; axis = null; dx = 0; dy = 0;
     const pt = e.touches ? e.touches[0] : e;
-    startX = pt.clientX; startY = pt.clientY;
+    sx = pt.clientX; sy = pt.clientY;
     card.style.transition = 'none';
   };
   const onMove = (e) => {
     if (!dragging) return;
     const pt = e.touches ? e.touches[0] : e;
-    const mx = pt.clientX - startX, my = pt.clientY - startY;
-    if (!decided && (Math.abs(mx) > 8 || Math.abs(my) > 8)) { decided = true; horizontal = Math.abs(mx) > Math.abs(my); }
-    if (!horizontal) return;
+    const mx = pt.clientX - sx, my = pt.clientY - sy;
+    if (!axis && (Math.abs(mx) > 8 || Math.abs(my) > 8)) axis = Math.abs(mx) > Math.abs(my) ? 'x' : 'y';
+    if (!axis) return;
+    if (axis === 'y' && kind !== 'sort') return; // let the page scroll
     if (e.cancelable) e.preventDefault();
-    dx = mx;
-    card.style.transform = `translateX(${dx}px) rotate(${dx * 0.07}deg)`;
-    card.querySelector('.swipe-right').style.opacity = Math.min(1, Math.max(0, dx / 80));
-    card.querySelector('.swipe-left').style.opacity = Math.min(1, Math.max(0, -dx / 80));
+    dx = axis === 'x' ? mx : 0;
+    dy = axis === 'y' ? my : 0;
+    card.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx * 0.07}deg)`;
+    const r = ind('.ind-right'), l = ind('.ind-left'), u = ind('.ind-up'), d = ind('.ind-down');
+    if (r) r.style.opacity = Math.min(1, Math.max(0, dx / 80));
+    if (l) l.style.opacity = Math.min(1, Math.max(0, -dx / 80));
+    if (u) u.style.opacity = Math.min(1, Math.max(0, -dy / 70));
+    if (d) d.style.opacity = Math.min(1, Math.max(0, dy / 70));
   };
   const onEnd = () => {
     if (!dragging) return;
     dragging = false;
     card.style.transition = 'transform .3s ease, opacity .3s ease';
-    if (horizontal && dx > 80) return animOut('right', acceptCard);
-    if (horizontal && dx < -80) return animOut('left', skipCard);
+    if (kind === 'sort') {
+      if (dx > 80) return animOut('right', () => sortAs('med', true));
+      if (dx < -80) return animOut('left', () => sortAs('someday', true));
+      if (dy < -70) return animOut('up', () => sortAs('high', true));
+      if (dy > 70) return animOut('down', () => sortAs('low', true));
+    } else {
+      if (dx > 80) return animOut('right', acceptCard);
+      if (dx < -80) return animOut('left', skipCard);
+    }
     card.style.transform = '';
-    card.querySelector('.swipe-right').style.opacity = 0;
-    card.querySelector('.swipe-left').style.opacity = 0;
+    card.querySelectorAll('.ind').forEach((x) => (x.style.opacity = 0));
   };
   card.addEventListener('mousedown', onStart);
   card.addEventListener('mousemove', onMove);
@@ -527,23 +808,28 @@ function initSwipe(card) {
 }
 
 function animOut(dir, cb) {
-  const card = document.querySelector('.swipe-card.entering');
+  const stack = document.getElementById(mode === 'sort' ? 'sort-stack' : 'do-stack');
+  const card = stack.querySelector('.swipe-card.entering');
   if (!card) { if (cb) cb(); return; }
-  card.style.transition = 'transform .3s ease, opacity .3s ease';
-  card.style.transform = `translateX(${dir === 'right' ? 420 : -420}px) rotate(${dir === 'right' ? 18 : -18}deg)`;
+  const t = {
+    right: 'translate(420px,0) rotate(18deg)', left: 'translate(-420px,0) rotate(-18deg)',
+    up: 'translate(0,-520px)', down: 'translate(0,520px)', 'left-soft': 'translate(-60px,0) scale(.9)',
+  }[dir];
+  card.style.transition = 'transform .28s ease, opacity .28s ease';
+  card.style.transform = t;
   card.style.opacity = '0';
-  setTimeout(() => { if (cb) cb(); }, 300);
+  setTimeout(() => { if (cb) cb(); }, 280);
 }
 
 function advance(t) {
   actioned.add(t.id);
   deckIdx++;
-  renderCards();
-  renderQuadStrip();
-  document.getElementById('s-pending').textContent = Math.max(0, deck.length - deckIdx);
+  renderDoCards();
+  renderLanes();
+  updateCounts();
 }
 
-// ── Card actions ──
+// ── Do-mode card actions ──
 function acceptCard() {
   const t = deck[deckIdx];
   if (!t) return;
@@ -590,7 +876,7 @@ function renderQueue() {
 
 function removeFromQueue(i) {
   const [t] = sprintQueue.splice(i, 1);
-  if (t) { actioned.delete(t.id); deck.splice(deckIdx, 0, t); renderCards(); renderQuadStrip(); }
+  if (t) { actioned.delete(t.id); deck.splice(deckIdx, 0, t); renderDoCards(); renderLanes(); }
   renderQueue();
   renderHint();
 }
@@ -629,7 +915,7 @@ function renderSprintTasks() {
     const current = i === sprintIdx && !t._done;
     return `<div class="sprint-task-item ${cls}">
       <div class="sprint-task-name">${esc(t.title)}</div>
-      <div class="sprint-task-source">${esc(Q_LABEL[t.quadrant])} · ${t.source === 'email' ? 'starred email' : esc(t.project)}${t.effort ? ' · ' + esc(t.effort) : ''}</div>
+      <div class="sprint-task-source">${esc(LANE_NAME[t.lane])} · ${t.source === 'email' ? 'starred email' : esc(t.project)}${t.effort ? ' · ' + esc(t.effort) : ''}</div>
       ${current ? `<div class="btn-row">
         <button class="btn green" onclick="completeCurrent()">mark complete</button>
         ${t.link ? `<a class="btn small" href="${esc(t.link)}" target="_blank" rel="noopener">open &#8599;</a>` : ''}
@@ -657,6 +943,7 @@ async function finishTask(t, notes) {
   sprintCompleted++;
   try {
     await api('/api/complete', { task_id: t.id, method_notes: notes, time_taken_sec: elapsed, session_id: sessionId, task: slim(t) });
+    allTasks = allTasks.filter((x) => x.id !== t.id);
   } catch (e) { showToast(e.message, true); t._done = false; sprintCompleted--; }
   nextSprintTask();
 }
@@ -679,7 +966,6 @@ async function endSprint() {
   const stats = { completed: sprintCompleted, skipped: sprintQueue.length - sprintCompleted };
   if (sessionId) api('/api/session', { action: 'end', session_id: sessionId, stats }).catch(() => {});
   showToast(sprintCompleted ? `Sprint done — ${sprintCompleted} task${sprintCompleted !== 1 ? 's' : ''} completed` : 'Sprint ended');
-  // Unfinished tasks go back in the deck
   sprintQueue.filter((t) => !t._done).forEach((t) => { delete t._passed; actioned.delete(t.id); });
   sprintQueue = [];
   sessionId = null;
@@ -704,7 +990,7 @@ async function startTwoMinutes() {
     twoLeft--;
     document.getElementById('two-timer').textContent = twoLeft >= 0 ? `${Math.floor(twoLeft / 60)}:${String(twoLeft % 60).padStart(2, '0')}` : `+${fmt(-twoLeft)}`;
     if (twoLeft === 0) {
-      document.getElementById('two-sub').textContent = "Two minutes. Stop, keep going, or call it done — all count.";
+      document.getElementById('two-sub').textContent = 'Two minutes. Stop, keep going, or call it done — all count.';
       const box = document.getElementById('two-box');
       box.classList.remove('ding'); void box.offsetWidth; box.classList.add('ding');
       try { navigator.vibrate && navigator.vibrate([120, 80, 120]); } catch (e) {}
@@ -738,9 +1024,11 @@ async function twoFinish(t, notes, spent) {
   advance(t);
   try {
     await api('/api/complete', { task_id: t.id, method_notes: notes, time_taken_sec: spent, session_id: twoSession, task: slim(t) });
+    allTasks = allTasks.filter((x) => x.id !== t.id);
     if (twoSession) api('/api/session', { action: 'end', session_id: twoSession, stats: { completed: 1 } }).catch(() => {});
     showToast('Done. That counts.');
   } catch (e) { showToast(e.message, true); }
+  renderLanes();
   loadStats();
 }
 
@@ -757,10 +1045,9 @@ function twoKeepGoing() {
 async function twoStop() {
   const t = twoTask;
   closeTwo();
-  // Started but not done: log it, move the card to the back of today's deck
   deck.splice(deckIdx, 1);
   deck.push(t);
-  renderCards();
+  renderDoCards();
   showToast('Started counts. It moved to the back of the deck.');
   try {
     await api('/api/dismiss', { task_id: t.id, reason: 'started', task: slim(t) });
@@ -768,11 +1055,17 @@ async function twoStop() {
   } catch (e) {}
 }
 
-// ── Modes ──
-function showMode(id) {
-  document.getElementById('swipe-view').style.display = id ? 'none' : '';
-  ['sprint-overlay', 'two-overlay'].forEach((m) => document.getElementById(m).classList.toggle('active', m === id));
-  window.scrollTo({ top: 0 });
+// ── Views ──
+function overlayActive() {
+  return ['sprint-overlay', 'two-overlay'].some((m) => document.getElementById(m).classList.contains('active'));
+}
+function showMode(overlayId) {
+  const inOverlay = !!overlayId;
+  document.getElementById('mode-bar').style.display = inOverlay ? 'none' : '';
+  document.getElementById('do-view').style.display = !inOverlay && mode === 'do' ? '' : 'none';
+  document.getElementById('sort-view').style.display = !inOverlay && mode === 'sort' ? '' : 'none';
+  ['sprint-overlay', 'two-overlay'].forEach((m) => document.getElementById(m).classList.toggle('active', m === overlayId));
+  if (inOverlay) window.scrollTo({ top: 0 });
 }
 
 // ── Modal ──
@@ -818,13 +1111,14 @@ async function addTask() {
 }
 
 // ── Utils ──
-function slim(t) { return { title: t.title, project: t.project, quadrant: t.quadrant, effort: t.effort, energy: t.energy }; }
+function slim(t) { return { title: t.title, project: t.project, lane: t.lane, effort: t.effort, energy: t.energy, context: t.context }; }
 function fmt(sec) { const m = Math.floor(sec / 60), s = sec % 60; return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`; }
 function esc(s) {
   if (s === null || s === undefined) return '';
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 function showToast(msg, err) {
+  document.querySelectorAll('.toast').forEach((x) => x.remove());
   const el = document.createElement('div');
   el.className = 'toast' + (err ? ' err' : '');
   el.textContent = msg;

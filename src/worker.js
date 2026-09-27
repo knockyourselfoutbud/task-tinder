@@ -8,7 +8,7 @@ import { ticktickClient, ticktickAuthUrl, ticktickExchangeCode, NotConnected } f
 import { gmailClient, googleAuthUrl, googleExchangeCode } from './gmail.js';
 import { kvDelete } from './store.js';
 import {
-  cardFromTickTick, cardFromEmail, sortDeck, localDay, stripEmoji, EFFORTS, ENERGIES,
+  cardFromTickTick, cardFromEmail, sortDeck, localDay, stripEmoji, EFFORTS, ENERGIES, PRIORITY_OF_LANE,
 } from './triage.js';
 
 const DEFAULT_EXCLUDES = 'Work,Someday,Backlog,Shopping';
@@ -95,8 +95,9 @@ async function buildDeck(env) {
       const columnsById = Object.fromEntries((data.columns || []).map((col) => [col.id, col.name]));
       for (const task of data.tasks || []) {
         if (task.parentId || (task.status && task.status !== 0)) continue;
-        if ((task.tags || []).map((t) => t.toLowerCase()).includes('claude')) continue; // already delegated
         ttText += ' ' + (task.title || '') + ' ' + (task.content || '');
+        const tl = (task.tags || []).map((t) => String(t).toLowerCase());
+        if (tl.includes('claude') || tl.includes('someday')) continue; // delegated / parked
         const card = cardFromTickTick({ ...task, projectId: task.projectId || project.id }, project, columnsById, meta[`tt:${task.projectId || project.id}:${task.id}`], c);
         if (!hidden.has(card.id)) cards.push(card);
       }
@@ -119,7 +120,13 @@ async function buildDeck(env) {
     sources.gmail = { status: e instanceof NotConnected ? 'not_connected' : 'error', note: e.message };
   }
 
-  return { tasks: sortDeck(cards), sources, today: c.today, sprintSize: parseInt(env.SPRINT_SIZE || '3', 10) || 3 };
+  return {
+    tasks: sortDeck(cards),
+    sources,
+    today: c.today,
+    sprintSize: parseInt(env.SPRINT_SIZE || '3', 10) || 3,
+    highLimit: parseInt(env.HIGH_LIMIT || '5', 10) || 5,
+  };
 }
 
 // ── API handlers ──
@@ -131,10 +138,10 @@ async function apiComplete(env, data) {
   else await gmailClient(env).unstarThread(k.threadId);
   const t = data.task || {};
   await env.DB.prepare(
-    `INSERT INTO completions (task_key, task_title, source, project, quadrant, effort, energy, method_notes, time_taken_sec, session_id)
+    `INSERT INTO completions (task_key, task_title, source, project, lane, effort, energy, method_notes, time_taken_sec, session_id)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
-    data.task_id, t.title || '', k.source, t.project || '', t.quadrant || '', t.effort || '', t.energy || '',
+    data.task_id, t.title || '', k.source, t.project || '', t.lane || '', t.effort || '', t.energy || '',
     data.method_notes || '', Math.max(0, parseInt(data.time_taken_sec || 0, 10) || 0), data.session_id || null
   ).run();
   return { ok: true };
@@ -168,6 +175,101 @@ async function apiDismiss(env, data) {
 
   await env.DB.prepare('INSERT INTO dismissals (task_key, task_title, reason, note, day) VALUES (?, ?, ?, ?, ?)')
     .bind(data.task_id, t.title || '', reason, note, cfg(env).today).run();
+  return { ok: true };
+}
+
+// ── Priority + Someday ──
+
+function emailTaskTitle(t, threadId) {
+  const subject = String(t.title || 'Starred email').replace(/[\[\]]/g, '');
+  return `[${subject}](https://mail.google.com/mail/u/0/#all/${threadId})`;
+}
+
+async function findProjectByName(env, name) {
+  const want = stripEmoji(name).toLowerCase();
+  const projects = await ticktickClient(env).listProjects();
+  return projects.find((p) => stripEmoji(p.name).toLowerCase() === want) || null;
+}
+
+// Set TickTick priority. A starred email becomes a TickTick task (linked to
+// the email) and is unstarred — TickTick is its home from then on.
+async function apiPriority(env, data) {
+  const k = parseKey(data.task_id);
+  if (!k) throw new HttpError(400, 'task_id required');
+  const priority = [0, 1, 3, 5].includes(data.priority) ? data.priority
+    : PRIORITY_OF_LANE[data.lane] ?? null;
+  if (priority === null) throw new HttpError(400, 'priority must be 0, 1, 3 or 5');
+  const tt = ticktickClient(env);
+  const c = cfg(env);
+
+  if (k.source === 'ticktick') {
+    const full = await tt.getTask(k.projectId, k.taskId);
+    const previous = full.priority || 0;
+    full.priority = priority;
+    await tt.update(full);
+    return { ok: true, previous, card: cardFromTickTick(full, { name: data.task?.project || 'Inbox' }, {}, null, c) };
+  }
+
+  const t = data.task || {};
+  const created = await tt.create({
+    projectId: env.TICKTICK_INBOX_ID || 'inbox',
+    title: emailTaskTitle(t, k.threadId),
+    content: t.context ? `From starred email: ${t.context}` : 'From a starred email.',
+    priority,
+  });
+  await gmailClient(env).unstarThread(k.threadId).catch(() => {});
+  const card = cardFromTickTick({ priority, createdTime: null, ...created }, { name: 'Inbox' }, {}, null, c);
+  return { ok: true, converted: true, card };
+}
+
+// Park a task in your Someday list (falls back to a "someday" tag if the move fails)
+async function apiSomeday(env, data) {
+  const k = parseKey(data.task_id);
+  if (!k) throw new HttpError(400, 'task_id required');
+  const tt = ticktickClient(env);
+  const listName = env.SOMEDAY_PROJECT || 'Someday';
+  const someday = await findProjectByName(env, listName);
+
+  if (k.source === 'email') {
+    const t = data.task || {};
+    await tt.create({
+      projectId: someday?.id || env.TICKTICK_INBOX_ID || 'inbox',
+      title: emailTaskTitle(t, k.threadId),
+      content: t.context ? `From starred email: ${t.context}` : 'From a starred email.',
+      tags: someday ? [] : ['someday'],
+    });
+    await gmailClient(env).unstarThread(k.threadId).catch(() => {});
+    return { ok: true, converted: true, undoable: false };
+  }
+
+  if (someday) {
+    try {
+      await tt.move(k.projectId, someday.id, k.taskId);
+      return { ok: true, moved: true, from: k.projectId, to: someday.id, new_id: `tt:${someday.id}:${k.taskId}`, undoable: true };
+    } catch (e) {
+      console.warn('move failed, tagging instead', e.message);
+    }
+  }
+  const full = await tt.getTask(k.projectId, k.taskId);
+  full.tags = [...new Set([...(full.tags || []), 'someday'])];
+  await tt.update(full);
+  return { ok: true, tagged: true, undoable: true };
+}
+
+// Undo for Someday: move back, or drop the tag
+async function apiUnsomeday(env, data) {
+  const tt = ticktickClient(env);
+  if (data.new_id && data.from) {
+    const k = parseKey(data.new_id);
+    if (!k) throw new HttpError(400, 'bad new_id');
+    await tt.move(k.projectId, data.from, k.taskId);
+    return { ok: true };
+  }
+  const k = parseKey(data.task_id);
+  if (!k || k.source !== 'ticktick') throw new HttpError(400, 'task_id required');
+  const full = await tt.getTask(k.projectId, k.taskId);
+  full.tags = (full.tags || []).filter((x) => String(x).toLowerCase() !== 'someday');
+  await tt.update(full);
   return { ok: true };
 }
 
@@ -236,7 +338,7 @@ async function apiStats(env) {
 
 async function apiPatterns(env) {
   const rows = await env.DB.prepare(
-    `SELECT task_title, method_notes, time_taken_sec, source, project, quadrant, effort, energy, completed_at
+    `SELECT task_title, method_notes, time_taken_sec, source, project, lane, effort, energy, completed_at
      FROM completions WHERE method_notes IS NOT NULL AND method_notes != '' ORDER BY id DESC LIMIT 100`
   ).all();
   return { patterns: rows.results || [] };
@@ -349,6 +451,9 @@ export default {
       if (path === '/api/complete' && method === 'POST') return json(await apiComplete(env, await body(request)));
       if (path === '/api/dismiss' && method === 'POST') return json(await apiDismiss(env, await body(request)));
       if (path === '/api/meta' && method === 'POST') return json(await apiMeta(env, await body(request)));
+      if (path === '/api/priority' && method === 'POST') return json(await apiPriority(env, await body(request)));
+      if (path === '/api/someday' && method === 'POST') return json(await apiSomeday(env, await body(request)));
+      if (path === '/api/someday/undo' && method === 'POST') return json(await apiUnsomeday(env, await body(request)));
       if (path === '/api/session' && method === 'POST') return json(await apiSession(env, await body(request)));
       if (path === '/api/stats') return json(await apiStats(env));
       if (path === '/api/patterns') return json(await apiPatterns(env));
