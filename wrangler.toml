@@ -22,8 +22,6 @@ GMAIL_MAX = "15"
 SPRINT_SIZE = "3"
 # Show a gentle warning when more than this many tasks are High
 HIGH_LIMIT = "5"
-# TickTick list that "Someday" (left swipe in Sort mode) moves tasks to
-SOMEDAY_PROJECT = "Someday"
 
 # Secrets (set with `npx wrangler secret put NAME`, never commit them):
 #   APP_PASSCODE, SESSION_SECRET,

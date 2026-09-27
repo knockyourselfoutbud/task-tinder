@@ -299,17 +299,23 @@ a { color:inherit; }
 
   <!-- ─────────── SORT MODE ─────────── -->
   <div id="sort-view" style="display:none">
-    <div class="sort-head"><h2>Give each task a priority</h2><span id="sort-left"></span></div>
+    <div class="sort-head"><h2 id="sort-title">Give each task a priority</h2><span id="sort-left"></span></div>
+    <div class="seg" id="sort-lane-bar">
+      <button class="seg-btn" data-v="none" onclick="setSortLane('none')">Unsorted</button>
+      <button class="seg-btn" data-v="high" onclick="setSortLane('high')">High</button>
+      <button class="seg-btn" data-v="med" onclick="setSortLane('med')">Med</button>
+      <button class="seg-btn" data-v="low" onclick="setSortLane('low')">Low</button>
+    </div>
     <div class="card-stack sort" id="sort-stack"></div>
     <div class="pad">
       <div class="act up"><button class="round-btn p-high" onclick="sortAs('high')" title="High (↑)">&#8593;</button><span>high</span></div>
-      <div class="act left"><button class="round-btn" onclick="sortAs('someday')" title="Someday (←)">&#8592;</button><span>someday</span></div>
-      <div class="act mid"><button class="round-btn small" onclick="sortSkip()" title="Decide later (space)">?</button><span>not sure</span></div>
+      <div class="act left"><button class="round-btn" onclick="sortAs('none')" title="No priority (←)">&#8592;</button><span>none</span></div>
+      <div class="act mid"><button class="round-btn small" onclick="sortKeep()" title="Keep as is (space)">=</button><span>keep</span></div>
       <div class="act right"><button class="round-btn p-med" onclick="sortAs('med')" title="Medium (→)">&#8594;</button><span>medium</span></div>
       <div class="act down"><button class="round-btn p-low" onclick="sortAs('low')" title="Low (↓)">&#8595;</button><span>low</span></div>
     </div>
     <button class="undo-btn" id="undo-btn" onclick="undo()" hidden>&#8630; undo</button>
-    <div class="card-hint">swipe up = high · right = medium · down = low · left = someday<br>priority is saved to TickTick right away</div>
+    <div class="card-hint">swipe up = high · right = medium · down = low · left = no priority<br>changes are saved to TickTick right away</div>
   </div>
 
   <!-- Sprint mode -->
@@ -397,7 +403,8 @@ let twoTask = null, twoTimer = null, twoLeft = 120, twoSession = null;
 // Sort mode
 let sortDeck = [];
 let sortIdx = 0;
-const sortSkipped = new Set();
+let sortLane = pref('sortLane', 'none');
+const sortSeen = new Set();   // handled in Sort mode this visit
 const undoStack = [];
 let busy = false;
 
@@ -419,8 +426,8 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowUp') { e.preventDefault(); animOut('up', () => sortAs('high', true)); }
     else if (e.key === 'ArrowRight') animOut('right', () => sortAs('med', true));
     else if (e.key === 'ArrowDown') { e.preventDefault(); animOut('down', () => sortAs('low', true)); }
-    else if (e.key === 'ArrowLeft') animOut('left', () => sortAs('someday', true));
-    else if (e.key === ' ') { e.preventDefault(); sortSkip(); }
+    else if (e.key === 'ArrowLeft') animOut('left', () => sortAs('none', true));
+    else if (e.key === ' ') { e.preventDefault(); sortKeep(); }
     else if (e.key === 'z') undo();
     return;
   }
@@ -504,7 +511,7 @@ async function loadDeck(manual) {
     sprintSize = r.sprintSize || 3;
     highLimit = r.highLimit || 5;
     renderBanner(r.sources || {});
-    sortSkipped.clear();
+    sortSeen.clear();
     if (mode === 'sort') rebuildSort(); else rebuildDeck();
     updateCounts();
     if (manual) showToast('Refreshed');
@@ -540,7 +547,7 @@ function renderLanes() {
   const nudge = document.getElementById('nudge');
   if (c.high > highLimit) {
     nudge.innerHTML = `<div class="nudge"><span>${c.high} High. When everything's High, nothing is — aim for ${highLimit} or fewer.</span>
-      ${lane === 'high' ? '' : `<button onclick="setLane('high')">review Highs</button>`}</div>`;
+      <button onclick="openSort('high')">review Highs</button></div>`;
   } else nudge.innerHTML = '';
 }
 
@@ -572,7 +579,7 @@ function cardHtml(t, cls, opts = {}) {
   const stale = t.stale ? `<span class="pill pill-stale">${esc(t.ageLabel)}</span>` : '';
   const age = !t.stale && t.ageLabel ? `<div class="card-meta">${esc(t.ageLabel)}${t.gmailImportant ? ' · Gmail says important' : ''}</div>` : '';
   const indicators = opts.sort
-    ? `<span class="ind ind-up">High</span><span class="ind ind-right">Medium</span><span class="ind ind-down">Low</span><span class="ind ind-left">Someday</span>`
+    ? `<span class="ind ind-up">High</span><span class="ind ind-right">Medium</span><span class="ind ind-down">Low</span><span class="ind ind-left">None</span>`
     : `<span class="ind ind-right">Queue</span><span class="ind ind-left">Skip</span>`;
   return `<div class="swipe-card p-${t.lane} ${cls}" data-id="${esc(t.id)}">
     ${indicators}
@@ -670,8 +677,27 @@ async function setMeta(kind, value) {
 }
 
 // ── Sort mode ──
+const SORT_TITLE = {
+  none: 'Give each task a priority',
+  high: 'Review your Highs',
+  med: 'Review your Mediums',
+  low: 'Review your Lows',
+};
+
+function setSortLane(l) {
+  sortLane = l; savePref('sortLane', l);
+  rebuildSort();
+}
+
+function openSort(l) {
+  sortLane = l; savePref('sortLane', l);
+  setMode('sort');
+}
+
 function rebuildSort() {
-  sortDeck = allTasks.filter((t) => t.lane === 'none' && !sortSkipped.has(t.id));
+  markSeg('sort-lane-bar', sortLane);
+  document.getElementById('sort-title').textContent = SORT_TITLE[sortLane];
+  sortDeck = allTasks.filter((t) => t.lane === sortLane && !sortSeen.has(t.id));
   sortIdx = 0;
   renderSortCards();
 }
@@ -683,50 +709,53 @@ function renderSortCards() {
   updateCounts();
   const stack = document.getElementById('sort-stack');
   if (sortIdx >= sortDeck.length) {
-    const skipped = sortSkipped.size;
-    stack.innerHTML = `<div class="empty-deck"><div class="empty-emoji">&#127881;</div>Everything has a priority.
-      ${skipped ? `<br><small>${skipped} set aside for later</small><br><button class="btn small" onclick="sortSkipped.clear();rebuildSort()">go through those</button>` : ''}
+    const reviewedHere = allTasks.filter((t) => t.lane === sortLane && sortSeen.has(t.id)).length;
+    const msg = sortLane === 'none' ? 'Nothing left without a priority.' : `You've been through all your ${LANE_NAME[sortLane]} tasks.`;
+    stack.innerHTML = `<div class="empty-deck"><div class="empty-emoji">&#127881;</div>${msg}
+      ${reviewedHere ? `<br><small>${reviewedHere} still ${sortLane === 'none' ? 'without a priority' : 'at ' + LANE_NAME[sortLane]}</small><br><button class="btn small" onclick="sortAgain()">go through again</button>` : ''}
       <br><button class="btn small" onclick="setMode('do')">start doing</button></div>`;
     return;
   }
   renderStack('sort-stack', sortDeck, sortIdx, { sort: true });
 }
 
+function sortAgain() {
+  allTasks.filter((t) => t.lane === sortLane).forEach((t) => sortSeen.delete(t.id));
+  rebuildSort();
+}
+
+// target: high | med | low | none
 async function sortAs(target, alreadyAnimated) {
   const t = sortDeck[sortIdx];
   if (!t || busy) return;
   if (!alreadyAnimated) {
-    const dir = { high: 'up', med: 'right', low: 'down', someday: 'left' }[target];
+    const dir = { high: 'up', med: 'right', low: 'down', none: 'left' }[target];
     await new Promise((res) => animOut(dir, res));
   }
   sortIdx++;
+  sortSeen.add(t.id);
   renderSortCards();
 
-  if (target === 'someday') {
-    busy = true;
-    try {
-      const r = await api('/api/someday', { task_id: t.id, task: slim(t) });
-      allTasks = allTasks.filter((x) => x.id !== t.id);
-      if (r.undoable) undoStack.push({ kind: 'someday', card: t, resp: r });
-      showToast(r.converted ? 'Saved to Someday and unstarred' : r.moved ? 'Moved to Someday' : 'Tagged "someday"');
-    } catch (e) {
-      showToast(e.message, true);
-      sortIdx--; renderSortCards();
-    } finally { busy = false; }
+  if (t.lane === target) {
+    // Nothing to change in TickTick (e.g. "none" on an unsorted card, or keeping a High as High)
+    undoStack.push({ kind: 'seen', card: t });
   } else {
     const updated = await changePriority(t, target);
-    if (!updated) { sortIdx--; renderSortCards(); return; }
-    undoStack.push({ kind: 'priority', card: updated, prevLane: 'none', original: t });
+    if (!updated) { sortIdx--; sortSeen.delete(t.id); renderSortCards(); return; }
+    sortSeen.add(updated.id);
+    undoStack.push({ kind: 'priority', card: updated, prevLane: t.lane });
     if (t.source === 'email') showToast(`Now a ${LANE_NAME[target]} TickTick task · email unstarred`);
+    else if (t.lane !== 'none') showToast(`${LANE_NAME[t.lane]} → ${LANE_NAME[target]}`);
   }
   document.getElementById('undo-btn').hidden = !undoStack.length;
   updateCounts();
 }
 
-function sortSkip() {
+// "keep" = leave the priority as it is and move on
+function sortKeep() {
   const t = sortDeck[sortIdx];
   if (!t) return;
-  animOut('left-soft', () => { sortSkipped.add(t.id); sortIdx++; renderSortCards(); });
+  animOut('left-soft', () => sortAs(t.lane, true));
 }
 
 async function undo() {
@@ -734,18 +763,16 @@ async function undo() {
   if (!u || busy) { document.getElementById('undo-btn').hidden = !undoStack.length; return; }
   busy = true;
   try {
+    let back = u.card;
     if (u.kind === 'priority') {
-      await api('/api/priority', { task_id: u.card.id, priority: 0, task: slim(u.card) });
-      const back = { ...u.card, priority: 0, lane: 'none', stale: false };
+      await api('/api/priority', { task_id: u.card.id, priority: LANE_PRIORITY[u.prevLane], task: slim(u.card) });
+      back = { ...u.card, priority: LANE_PRIORITY[u.prevLane], lane: u.prevLane };
       const i = allTasks.findIndex((x) => x.id === u.card.id);
       if (i >= 0) allTasks[i] = back; else allTasks.push(back);
-      sortDeck.splice(sortIdx, 0, back);
-    } else {
-      await api('/api/someday/undo', u.resp.moved ? { new_id: u.resp.new_id, from: u.resp.from } : { task_id: u.card.id });
-      allTasks.push(u.card);
-      sortDeck.splice(sortIdx, 0, u.card);
+      showToast(`Back to ${LANE_NAME[u.prevLane]}`);
     }
-    showToast('Undone');
+    sortSeen.delete(back.id);
+    if (back.lane === sortLane) sortDeck.splice(sortIdx, 0, back);
   } catch (e) {
     showToast(e.message, true);
   } finally {
@@ -788,7 +815,7 @@ function initSwipe(card, kind) {
     card.style.transition = 'transform .3s ease, opacity .3s ease';
     if (kind === 'sort') {
       if (dx > 80) return animOut('right', () => sortAs('med', true));
-      if (dx < -80) return animOut('left', () => sortAs('someday', true));
+      if (dx < -80) return animOut('left', () => sortAs('none', true));
       if (dy < -70) return animOut('up', () => sortAs('high', true));
       if (dy > 70) return animOut('down', () => sortAs('low', true));
     } else {

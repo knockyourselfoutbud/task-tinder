@@ -53,7 +53,6 @@ function seed() {
     { id: 't19', projectId: 'inbox', title: 'Pick up discs from the shop', priority: 3, createdTime: isoIn(-11) },
     { id: 't20', projectId: 'inbox', title: 'Sort old photos into albums', priority: 0, createdTime: isoIn(-60) },
     { id: 't21', projectId: 'inbox', title: 'Look into new bike rack', priority: 0, createdTime: isoIn(-15) },
-    { id: 't22', projectId: 'inbox', title: 'Old idea tagged someday', priority: 0, tags: ['someday'], createdTime: isoIn(-15) },
   ];
 
   threads = [
@@ -78,13 +77,6 @@ export const mockTickTick = {
   async complete(projectId, taskId) { seed(); const t = tasks.find((x) => x.id === taskId); if (t) t.done = true; return null; },
   async update(task) { seed(); tasks = tasks.map((t) => (t.id === task.id ? { ...t, ...task } : t)); return task; },
   async create(task) { seed(); const t = { id: 'n' + Date.now(), priority: 0, createdTime: new Date().toISOString(), ...task }; tasks.push(t); return t; },
-  async move(fromProjectId, toProjectId, taskId) {
-    seed();
-    const t = tasks.find((x) => x.id === taskId && x.projectId === fromProjectId);
-    if (!t) throw new Error('mock: task not found');
-    t.projectId = toProjectId;
-    return [{ id: taskId }];
-  },
 };
 
 export const mockGmail = {

@@ -97,7 +97,7 @@ async function buildDeck(env) {
         if (task.parentId || (task.status && task.status !== 0)) continue;
         ttText += ' ' + (task.title || '') + ' ' + (task.content || '');
         const tl = (task.tags || []).map((t) => String(t).toLowerCase());
-        if (tl.includes('claude') || tl.includes('someday')) continue; // delegated / parked
+        if (tl.includes('claude')) continue; // delegated to Claude
         const card = cardFromTickTick({ ...task, projectId: task.projectId || project.id }, project, columnsById, meta[`tt:${task.projectId || project.id}:${task.id}`], c);
         if (!hidden.has(card.id)) cards.push(card);
       }
@@ -178,17 +178,11 @@ async function apiDismiss(env, data) {
   return { ok: true };
 }
 
-// ── Priority + Someday ──
+// ── Priority ──
 
 function emailTaskTitle(t, threadId) {
   const subject = String(t.title || 'Starred email').replace(/[\[\]]/g, '');
   return `[${subject}](https://mail.google.com/mail/u/0/#all/${threadId})`;
-}
-
-async function findProjectByName(env, name) {
-  const want = stripEmoji(name).toLowerCase();
-  const projects = await ticktickClient(env).listProjects();
-  return projects.find((p) => stripEmoji(p.name).toLowerCase() === want) || null;
 }
 
 // Set TickTick priority. A starred email becomes a TickTick task (linked to
@@ -220,57 +214,6 @@ async function apiPriority(env, data) {
   await gmailClient(env).unstarThread(k.threadId).catch(() => {});
   const card = cardFromTickTick({ priority, createdTime: null, ...created }, { name: 'Inbox' }, {}, null, c);
   return { ok: true, converted: true, card };
-}
-
-// Park a task in your Someday list (falls back to a "someday" tag if the move fails)
-async function apiSomeday(env, data) {
-  const k = parseKey(data.task_id);
-  if (!k) throw new HttpError(400, 'task_id required');
-  const tt = ticktickClient(env);
-  const listName = env.SOMEDAY_PROJECT || 'Someday';
-  const someday = await findProjectByName(env, listName);
-
-  if (k.source === 'email') {
-    const t = data.task || {};
-    await tt.create({
-      projectId: someday?.id || env.TICKTICK_INBOX_ID || 'inbox',
-      title: emailTaskTitle(t, k.threadId),
-      content: t.context ? `From starred email: ${t.context}` : 'From a starred email.',
-      tags: someday ? [] : ['someday'],
-    });
-    await gmailClient(env).unstarThread(k.threadId).catch(() => {});
-    return { ok: true, converted: true, undoable: false };
-  }
-
-  if (someday) {
-    try {
-      await tt.move(k.projectId, someday.id, k.taskId);
-      return { ok: true, moved: true, from: k.projectId, to: someday.id, new_id: `tt:${someday.id}:${k.taskId}`, undoable: true };
-    } catch (e) {
-      console.warn('move failed, tagging instead', e.message);
-    }
-  }
-  const full = await tt.getTask(k.projectId, k.taskId);
-  full.tags = [...new Set([...(full.tags || []), 'someday'])];
-  await tt.update(full);
-  return { ok: true, tagged: true, undoable: true };
-}
-
-// Undo for Someday: move back, or drop the tag
-async function apiUnsomeday(env, data) {
-  const tt = ticktickClient(env);
-  if (data.new_id && data.from) {
-    const k = parseKey(data.new_id);
-    if (!k) throw new HttpError(400, 'bad new_id');
-    await tt.move(k.projectId, data.from, k.taskId);
-    return { ok: true };
-  }
-  const k = parseKey(data.task_id);
-  if (!k || k.source !== 'ticktick') throw new HttpError(400, 'task_id required');
-  const full = await tt.getTask(k.projectId, k.taskId);
-  full.tags = (full.tags || []).filter((x) => String(x).toLowerCase() !== 'someday');
-  await tt.update(full);
-  return { ok: true };
 }
 
 async function apiMeta(env, data) {
@@ -452,8 +395,6 @@ export default {
       if (path === '/api/dismiss' && method === 'POST') return json(await apiDismiss(env, await body(request)));
       if (path === '/api/meta' && method === 'POST') return json(await apiMeta(env, await body(request)));
       if (path === '/api/priority' && method === 'POST') return json(await apiPriority(env, await body(request)));
-      if (path === '/api/someday' && method === 'POST') return json(await apiSomeday(env, await body(request)));
-      if (path === '/api/someday/undo' && method === 'POST') return json(await apiUnsomeday(env, await body(request)));
       if (path === '/api/session' && method === 'POST') return json(await apiSession(env, await body(request)));
       if (path === '/api/stats') return json(await apiStats(env));
       if (path === '/api/patterns') return json(await apiPatterns(env));

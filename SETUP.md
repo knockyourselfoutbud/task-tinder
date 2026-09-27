@@ -91,7 +91,6 @@ Edit the `[vars]` section of `wrangler.toml`, then run `npm run deploy` again.
 - `GMAIL_MAX` is the maximum number of starred threads per load. The default is 15.
 - `SPRINT_SIZE` is how many queued cards start a sprint automatically. The default is 3.
 - `HIGH_LIMIT` is how many High tasks are allowed before the app nudges you. The default is 5.
-- `SOMEDAY_PROJECT` is the TickTick list that a left swipe in Sort mode moves tasks to. The default is `Someday`.
 - `TZ` is used to decide what "due today" means.
 
 If the banner says "couldn't load: Inbox", your TickTick account may need its real inbox ID. Set `TICKTICK_INBOX_ID` under `[vars]` in `wrangler.toml`.

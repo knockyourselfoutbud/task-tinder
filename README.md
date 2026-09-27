@@ -11,7 +11,7 @@ Forked from [loganhc-09/task-tinder](https://github.com/loganhc-09/task-tinder) 
 | Where tasks live | Local SQLite with sample tasks | **TickTick** (all your lists, minus the ones you exclude) plus **starred Gmail** |
 | Where it runs | `localhost:5050` on one PC | **Cloudflare Worker**: phone and PC, installable to the Android home screen |
 | Order | Insertion order | **TickTick priority**: High → Medium → Low → none. Within a priority, overdue or due-soon tasks come first, then the oldest |
-| Priority | — | Change it on any card (saved to TickTick), filter the deck by priority, and use **Sort mode** to prioritize the unsorted pile by swiping |
+| Priority | — | Change it on any card (saved to TickTick), filter the deck by priority, and use **Sort mode** to set or clear priorities by swiping |
 | Filters | 10/30/60 min (exact match) | **Priority lane** + **Time I have** (up to N minutes) + **Energy I have** (low/med/high) |
 | Starting | Sprint only after 3 cards | **Start after 1 card**, plus a **"just 2 minutes"** button on every card |
 | Completing | Local DB only | Completes the task in **TickTick** / **unstars** the email |
@@ -26,19 +26,19 @@ Forked from [loganhc-09/task-tinder](https://github.com/loganhc-09/task-tinder) 
 - When you have more than `HIGH_LIMIT` Highs (5 by default), a nudge suggests you review them.
 - High and Medium cards that have been open for 14 days or more show a red "open N days" badge.
 
-**Sort mode** is for tasks that have no priority yet. The count on the Sort tab tells you how many are waiting. Each card gets one swipe:
+**Sort mode** goes through one priority at a time. It starts on **Unsorted** (tasks with no priority), and you can switch to **High**, **Med** or **Low** to re-sort those. The count on the Sort tab is how many tasks have no priority. The "review Highs" nudge in Do mode opens Sort mode on High. Each card gets one swipe:
 
 | Swipe | Button | Result |
 |---|---|---|
-| ↑ up | High | Sets priority 5 in TickTick |
-| → right | Medium | Sets priority 3 |
-| ↓ down | Low | Sets priority 1 |
-| ← left | Someday | Moves the task to your TickTick "Someday" list (or tags it `someday` if the move fails). It then leaves the deck. |
-| — | ? not sure | Sets the card aside for this session |
+| ↑ up | High | Sets priority to High in TickTick |
+| → right | Medium | Sets priority to Medium |
+| ↓ down | Low | Sets priority to Low |
+| ← left | None | Removes the priority (sets it to none) |
+| — | = keep | Leaves the priority as it is and moves on |
 
-**Undo** reverses the last sort. On a keyboard, the arrow keys sort, space means "not sure" and `z` undoes.
+**Undo** reverses the last sort. On a keyboard, the arrow keys sort, space means "keep" and `z` undoes.
 
-Starred emails show up as unsorted cards. When you give one a priority (or send it to Someday), it becomes a TickTick task that links back to the email, and the email is unstarred. From then on, TickTick is where it lives.
+Starred emails show up as unsorted cards. When you give one a priority, it becomes a TickTick task that links back to the email, and the email is unstarred. From then on, TickTick is where it lives.
 
 ## How a card is described
 
@@ -52,7 +52,7 @@ Starred emails show up as unsorted cards. When you give one a priority (or send 
   4. A guess. Emails are guessed at 10 min, and guesses show with a dashed outline.
 - **Energy** comes from what you tap on the card, or from the tags `energy-low`, `energy-med` and `energy-high`.
 
-Cards with unknown effort or energy are never hidden by the time and energy filters. Tasks tagged `claude` (delegated) or `someday` (parked) are left out of the deck.
+Cards with unknown effort or energy are never hidden by the time and energy filters. Tasks tagged `claude` (delegated to Claude) are left out of the deck.
 
 ## Do-mode swipes
 
@@ -102,8 +102,6 @@ All endpoints need a signed-in session cookie.
 | `/api/dismiss` | POST | `{task_id, reason: skip\|delegate\|started, note?}` |
 | `/api/meta` | POST | `{task_id, effort?, energy?}` stores your tags for a card |
 | `/api/priority` | POST | `{task_id, priority: 0\|1\|3\|5}` saves the priority to TickTick. For an email, it creates a TickTick task and unstars the email |
-| `/api/someday` | POST | `{task_id}` moves the task to your Someday list (or tags it `someday`) |
-| `/api/someday/undo` | POST | Reverses a Someday move |
 | `/api/session` | POST | Start or end a sprint |
 | `/api/stats` | GET | Counts and recent completions |
 | `/api/patterns` | GET | Your "how I did it" notes (the learning data) |

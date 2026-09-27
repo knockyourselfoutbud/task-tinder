@@ -110,7 +110,5 @@ export function ticktickClient(env) {
     // Always send the full task object back so nothing gets wiped
     update: (task) => call(env, `/task/${encodeURIComponent(task.id)}`, { method: 'POST', body: JSON.stringify(task) }),
     create: (task) => call(env, '/task', { method: 'POST', body: JSON.stringify(task) }),
-    move: (fromProjectId, toProjectId, taskId) =>
-      call(env, '/task/move', { method: 'POST', body: JSON.stringify([{ fromProjectId, toProjectId, taskId }]) }),
   };
 }

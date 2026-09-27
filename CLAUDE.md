@@ -6,8 +6,8 @@ A swipe-style triage deck over TickTick and starred Gmail, running as a Cloudfla
 
 - `src/worker.js` handles routing, the passcode gate and every `/api/*` handler. `buildDeck()` merges TickTick tasks with starred Gmail threads. It skips any email whose thread or message ID already appears in a TickTick task, then hides today's skips and recent delegations.
 - `src/triage.js` holds the pure classification rules: the priority lane (straight from TickTick priority 5/3/1/0), due and age badges, effort, energy and sort order. Unit tests are in `test/`. Keep this file free of I/O.
-- Priority changes (`/api/priority`) and Someday moves (`/api/someday`) write to TickTick immediately. Giving an email a priority turns it into a TickTick task and unstars it.
-- The UI has two modes. **Do** works through tasks and can filter by lane. **Sort** prioritizes tasks that have no priority: swipe up for High, right for Medium, down for Low, left for Someday, and undo is available.
+- Priority changes (`/api/priority`) write to TickTick immediately. Giving an email a priority turns it into a TickTick task and unstars it.
+- The UI has two modes. **Do** works through tasks and can filter by lane. **Sort** goes through one lane at a time (Unsorted, High, Med or Low): swipe up for High, right for Medium, down for Low, left for no priority. There's also a "keep" button and undo.
 - `src/ticktick.js` and `src/gmail.js` are the API clients plus OAuth. Tokens live in the D1 `kv` table. TickTick updates always GET the full task and POST it back, so no fields get wiped.
 - `src/index.html` is the single-page UI in vanilla JS. The Worker imports it as text. Filtering by time and energy happens on the client.
 - `src/mock.js` holds fake data when `MOCK=1`. Don't put real personal data here, because the repo is public.
