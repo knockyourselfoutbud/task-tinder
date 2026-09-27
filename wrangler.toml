@@ -1,0 +1,28 @@
+name = "task-tinder"
+main = "src/worker.js"
+compatibility_date = "2025-09-01"
+# workers_dev = true gives you https://task-tinder.<your-subdomain>.workers.dev
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "task-tinder"
+# Replace with the id printed by: npx wrangler d1 create task-tinder
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[vars]
+TZ = "America/New_York"
+# TickTick lists to leave out of the deck (names without emoji, comma-separated)
+TICKTICK_EXCLUDE_PROJECTS = "Work,Someday,Backlog,Shopping"
+# Gmail search that defines "email tasks"
+GMAIL_QUERY = "is:starred"
+GMAIL_MAX = "15"
+# Sprint auto-starts after this many queued cards (you can always start sooner)
+SPRINT_SIZE = "3"
+
+# Secrets (set with `npx wrangler secret put NAME`, never commit them):
+#   APP_PASSCODE, SESSION_SECRET,
+#   TICKTICK_CLIENT_ID, TICKTICK_CLIENT_SECRET,
+#   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+# Optional: GOOGLE_LOGIN_HINT (your Gmail address, pre-fills Google sign-in)

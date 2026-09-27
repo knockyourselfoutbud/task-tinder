@@ -1,0 +1,4 @@
+# Copy to .dev.vars for `npm run dev`. MOCK=1 uses fake TickTick/Gmail data.
+MOCK=1
+APP_PASSCODE=dev
+SESSION_SECRET=local-dev-secret

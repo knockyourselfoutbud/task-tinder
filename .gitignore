@@ -1,7 +1,10 @@
-task_tinder.db
-task_tinder.db-shm
-task_tinder.db-wal
+node_modules/
+.wrangler/
+.dev.vars
+*.log
+.DS_Store
+# legacy Flask version
+task_tinder.db*
 delegations.jsonl
 __pycache__/
 *.pyc
-.DS_Store

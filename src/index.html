@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Task Tinder</title>
+<meta name="theme-color" content="#1a1815">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg">
+<link rel="apple-touch-icon" href="/icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --surface-2: #f0efe9;
+  --surface-3: #e8e6df;
+  --border: rgba(0,0,0,.07);
+  --border-b: rgba(0,0,0,.12);
+  --text: #3d3a34;
+  --text-dim: #8a8578;
+  --text-bright: #1a1815;
+  --accent: #7c5cfc;
+  --accent-s: rgba(124,92,252,.08);
+  --green: #16a163;
+  --green-s: rgba(22,161,99,.07);
+  --red: #dc4a4a;
+  --red-s: rgba(220,74,74,.07);
+  --amber: #b07d10;
+  --amber-s: rgba(192,139,26,.09);
+  --teal: #0f8e7e;
+  --teal-s: rgba(15,142,126,.08);
+  --mono: 'DM Mono', 'SF Mono', ui-monospace, monospace;
+  --sans: 'Outfit', -apple-system, system-ui, sans-serif;
+  --sh-s: 0 1px 3px rgba(0,0,0,.04);
+  --sh-m: 0 4px 12px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161513; --surface: #201f1c; --surface-2: #2a2925; --surface-3: #33322d;
+    --border: rgba(255,255,255,.07); --border-b: rgba(255,255,255,.14);
+    --text: #d9d5cc; --text-dim: #8f8a7f; --text-bright: #f3f0e8;
+    --accent: #9d86ff; --accent-s: rgba(157,134,255,.12);
+    --green: #3cc486; --green-s: rgba(60,196,134,.1);
+    --red: #f06a6a; --red-s: rgba(240,106,106,.1);
+    --amber: #e0b04a; --amber-s: rgba(224,176,74,.1);
+    --teal: #3bc2b0; --teal-s: rgba(59,194,176,.1);
+    --sh-s: 0 1px 3px rgba(0,0,0,.3); --sh-m: 0 4px 14px rgba(0,0,0,.35);
+  }
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:var(--sans); background:var(--bg); color:var(--text); min-height:100vh; -webkit-font-smoothing:antialiased; }
+button { font-family:inherit; }
+a { color:inherit; }
+
+.app { max-width:480px; margin:0 auto; padding:20px 16px 40px; }
+
+.header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; gap:10px; }
+.header h1 { font-size:22px; font-weight:600; color:var(--text-bright); letter-spacing:-.02em; }
+.header .date { font-family:var(--mono); font-size:11px; color:var(--text-dim); }
+.header-right { display:flex; align-items:center; gap:6px; }
+.icon-btn { width:34px; height:34px; border-radius:10px; border:1px solid var(--border); background:var(--surface); color:var(--text-dim); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; text-decoration:none; font-size:15px; }
+.icon-btn:hover { color:var(--text-bright); }
+.icon-btn.spinning { animation:spin 1s linear infinite; }
+
+.banner { font-family:var(--mono); font-size:11px; padding:10px 12px; border-radius:10px; margin-bottom:12px; background:var(--red-s); color:var(--red); border:1px solid var(--red-s); line-height:1.5; }
+.banner a { font-weight:500; }
+
+/* Filters */
+.filter-label { font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-dim); margin:0 0 5px 2px; }
+.seg { display:flex; gap:3px; margin-bottom:12px; background:var(--surface-2); border-radius:10px; padding:3px; }
+.seg-btn { flex:1; padding:9px 0; border:none; border-radius:8px; background:transparent; color:var(--text-dim); font-family:var(--mono); font-size:12px; cursor:pointer; transition:all .2s; }
+.seg-btn:hover { color:var(--text); }
+.seg-btn.active { background:var(--surface); color:var(--text-bright); box-shadow:var(--sh-s); }
+
+.quad-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin:4px 0 14px; }
+.quad-count { text-align:center; font-family:var(--mono); font-size:10px; padding:6px 0; border-radius:8px; }
+.quad-count b { display:block; font-size:15px; font-weight:500; }
+
+/* Card stack */
+.card-stack { position:relative; height:356px; margin-bottom:14px; }
+.swipe-card { position:absolute; width:100%; height:340px; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px; cursor:grab; user-select:none; touch-action:pan-y; display:flex; flex-direction:column; box-shadow:var(--sh-m); will-change:transform; }
+.swipe-card:active { cursor:grabbing; }
+.swipe-card.entering { z-index:3; }
+.swipe-card.behind-1 { transform:scale(.96) translateY(6px); opacity:.4; pointer-events:none; z-index:2; }
+.swipe-card.behind-1 * { visibility:hidden; }
+.swipe-card.behind-2 { transform:scale(.92) translateY(12px); opacity:.2; pointer-events:none; z-index:1; }
+.swipe-card.behind-2 * { visibility:hidden; }
+.swipe-card.q-do { border-top:3px solid var(--red); }
+.swipe-card.q-schedule { border-top:3px solid var(--accent); }
+.swipe-card.q-delegate { border-top:3px solid var(--teal); }
+
+.swipe-indicator { position:absolute; top:16px; font-family:var(--mono); font-size:13px; font-weight:500; letter-spacing:.08em; text-transform:uppercase; padding:4px 14px; border-radius:8px; opacity:0; pointer-events:none; }
+.swipe-right { right:16px; color:var(--green); border:2px solid var(--green); background:var(--surface); }
+.swipe-left { left:16px; color:var(--red); border:2px solid var(--red); background:var(--surface); }
+
+.card-top { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+.pill { font-family:var(--mono); font-size:9px; letter-spacing:.07em; text-transform:uppercase; padding:3px 8px; border-radius:100px; white-space:nowrap; }
+.pill-source { background:var(--surface-2); color:var(--text-dim); }
+.pill-email { background:var(--red-s); color:var(--red); }
+.pill-do { background:var(--red-s); color:var(--red); }
+.pill-schedule { background:var(--accent-s); color:var(--accent); }
+.pill-delegate { background:var(--teal-s); color:var(--teal); }
+.pill-later { background:var(--surface-2); color:var(--text-dim); }
+.pill-due { background:var(--amber-s); color:var(--amber); }
+.pill-overdue { background:var(--red); color:#fff; }
+.pill-anchor { background:var(--text-bright); color:var(--bg); }
+
+.card-title { font-size:18px; font-weight:500; line-height:1.35; color:var(--text-bright); letter-spacing:-.01em; overflow:hidden; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; }
+.card-context { font-size:12.5px; color:var(--text-dim); line-height:1.5; margin-top:8px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
+.card-link { display:inline-block; margin-top:8px; font-family:var(--mono); font-size:11px; color:var(--accent); text-decoration:none; }
+.card-spacer { flex:1; }
+
+.chips { display:flex; align-items:center; gap:4px; margin-top:8px; }
+.chips-label { font-family:var(--mono); font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-dim); width:48px; }
+.chip { flex:1; padding:6px 0; border-radius:8px; border:1px solid var(--border); background:transparent; color:var(--text-dim); font-family:var(--mono); font-size:11px; cursor:pointer; }
+.chip.on { background:var(--text-bright); color:var(--bg); border-color:var(--text-bright); }
+.chip.guess { border-style:dashed; border-color:var(--text-dim); color:var(--text); }
+
+/* Action buttons */
+.swipe-actions { display:flex; justify-content:center; gap:12px; margin-bottom:8px; }
+.act { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.act span { font-family:var(--mono); font-size:9px; color:var(--text-dim); letter-spacing:.05em; }
+.swipe-action-btn { width:52px; height:52px; border-radius:50%; border:1px solid var(--border-b); background:var(--surface); color:var(--text-dim); font-size:18px; cursor:pointer; transition:all .2s; display:flex; align-items:center; justify-content:center; box-shadow:var(--sh-s); }
+.swipe-action-btn:hover { transform:scale(1.08); }
+.swipe-action-btn.accept { color:var(--green); }
+.swipe-action-btn.accept:hover { background:var(--green-s); border-color:var(--green); }
+.swipe-action-btn.reject { color:var(--red); }
+.swipe-action-btn.reject:hover { background:var(--red-s); border-color:var(--red); }
+.swipe-action-btn.delegate { color:var(--accent); }
+.swipe-action-btn.delegate:hover { background:var(--accent-s); border-color:var(--accent); }
+.swipe-action-btn.two { color:var(--amber); font-family:var(--mono); font-size:13px; font-weight:500; }
+.swipe-action-btn.two:hover { background:var(--amber-s); border-color:var(--amber); }
+
+.card-hint { font-family:var(--mono); font-size:10px; color:var(--text-dim); text-align:center; opacity:.7; margin-bottom:16px; }
+
+/* Sprint queue */
+.sprint-queue-bar { display:flex; gap:6px; padding:8px 12px; margin-bottom:8px; background:var(--surface); border:1px solid var(--green); border-radius:10px; align-items:center; font-family:var(--mono); font-size:11px; animation:cardIn .3s ease; }
+.sprint-queue-bar .sq-name { flex:1; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sprint-queue-bar .sq-remove { background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:14px; padding:0 4px; }
+.start-sprint-btn { width:100%; padding:13px; border:none; border-radius:10px; background:var(--green); color:#fff; font-family:var(--mono); font-size:13px; font-weight:500; cursor:pointer; margin-bottom:8px; }
+
+/* Sprint + two-minute modes */
+.mode-overlay { display:none; }
+.mode-overlay.active { display:block; }
+.sprint-header { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 18px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; box-shadow:var(--sh-s); }
+.sprint-timer { font-family:var(--mono); font-size:30px; font-weight:300; color:var(--text-bright); }
+.sprint-timer.over { color:var(--amber); }
+.sprint-progress { font-family:var(--mono); font-size:11px; color:var(--text-dim); }
+.sprint-task-item { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-bottom:8px; transition:all .3s; }
+.sprint-task-item.current { border-color:var(--green); border-left:3px solid var(--green); }
+.sprint-task-item.completed { opacity:.4; text-decoration:line-through; }
+.sprint-task-item.passed { opacity:.4; }
+.sprint-task-name { font-size:14px; color:var(--text-bright); margin-bottom:4px; }
+.sprint-task-source { font-family:var(--mono); font-size:10px; color:var(--text-dim); }
+.btn-row { display:flex; gap:8px; margin-top:8px; }
+.btn { flex:1; padding:12px; border-radius:10px; font-family:var(--mono); font-size:12px; font-weight:500; cursor:pointer; transition:all .2s; border:1px solid var(--border-b); background:transparent; color:var(--text-dim); text-align:center; text-decoration:none; }
+.btn.green { border-color:var(--green); background:var(--green-s); color:var(--green); }
+.btn.green:hover { background:var(--green); color:#fff; }
+.btn.amber { border-color:var(--amber); background:var(--amber-s); color:var(--amber); }
+.btn.small { flex:0 0 auto; padding:8px 14px; font-size:11px; font-weight:400; }
+
+.two-box { background:var(--surface); border:1px solid var(--amber); border-radius:16px; padding:24px 20px; text-align:center; box-shadow:var(--sh-m); }
+.two-box .two-label { font-family:var(--mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); }
+.two-box .two-timer { font-family:var(--mono); font-size:56px; font-weight:300; color:var(--text-bright); margin:8px 0 6px; }
+.two-box .two-title { font-size:17px; font-weight:500; color:var(--text-bright); line-height:1.35; margin-bottom:6px; }
+.two-box .two-sub { font-size:12.5px; color:var(--text-dim); margin-bottom:16px; }
+.two-box.ding { animation:ding .6s ease 2; }
+
+/* Modal */
+.meta-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:100; align-items:center; justify-content:center; padding:16px; }
+.meta-modal.active { display:flex; }
+.meta-box { background:var(--surface); border-radius:16px; padding:24px; max-width:420px; width:100%; box-shadow:0 20px 40px rgba(0,0,0,.2); }
+.meta-box h3 { font-size:16px; font-weight:600; color:var(--text-bright); margin-bottom:4px; }
+.meta-box .meta-subtitle { font-family:var(--mono); font-size:11px; color:var(--text-dim); margin-bottom:14px; line-height:1.5; }
+.meta-box textarea { width:100%; min-height:96px; padding:12px; border:1px solid var(--border-b); border-radius:10px; font-family:var(--sans); font-size:16px; color:var(--text); background:var(--bg); resize:vertical; line-height:1.5; }
+.meta-box textarea:focus { outline:none; border-color:var(--green); box-shadow:0 0 0 3px var(--green-s); }
+.meta-actions { display:flex; gap:8px; margin-top:12px; }
+.meta-btn { flex:1; padding:11px; border-radius:8px; font-family:var(--mono); font-size:12px; cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--text-dim); }
+.meta-btn.primary { background:var(--green); color:#fff; border-color:var(--green); }
+
+/* Stats */
+.stats-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border); border-radius:12px; overflow:hidden; margin-top:20px; }
+.stat-item { text-align:center; padding:14px 6px; background:var(--surface); }
+.stat-value { font-family:var(--mono); font-size:19px; color:var(--text-bright); }
+.stat-label { font-family:var(--mono); font-size:9px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.1em; margin-top:4px; }
+
+.empty-deck { text-align:center; padding:70px 20px; color:var(--text-dim); font-size:14px; line-height:1.6; }
+.empty-deck .empty-emoji { font-size:32px; margin-bottom:12px; }
+.empty-deck button { margin-top:14px; }
+
+.add-task-bar { display:flex; gap:8px; margin-top:14px; }
+.add-task-bar input { flex:1; min-width:0; padding:11px 14px; border:1px solid var(--border); border-radius:10px; font-family:var(--sans); font-size:16px; color:var(--text); background:var(--surface); }
+.add-task-bar input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-s); }
+.add-task-bar button { padding:10px 16px; border:none; border-radius:10px; background:var(--text-bright); color:var(--bg); font-family:var(--mono); font-size:12px; cursor:pointer; }
+.add-hint { font-family:var(--mono); font-size:10px; color:var(--text-dim); margin:6px 2px 0; }
+
+.toast { position:fixed; bottom:1.2rem; left:50%; transform:translateX(-50%); background:var(--text-bright); color:var(--bg); padding:.6rem 1rem; border-radius:.6rem; z-index:120; font-family:var(--mono); font-size:12px; transition:opacity .3s; max-width:90vw; text-align:center; }
+.toast.err { background:var(--red); color:#fff; }
+
+@keyframes cardIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+@keyframes spin { to { transform:rotate(360deg); } }
+@keyframes ding { 0%,100% { transform:scale(1); } 50% { transform:scale(1.03); } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div>
+      <h1>Task Tinder</h1>
+      <span class="date" id="date"></span>
+    </div>
+    <div class="header-right">
+      <button class="icon-btn" id="refresh-btn" onclick="loadDeck(true)" title="Refresh from TickTick + Gmail" aria-label="Refresh">&#8635;</button>
+      <a class="icon-btn" href="/setup" title="Connections" aria-label="Connections">&#9881;</a>
+    </div>
+  </div>
+
+  <div id="banner"></div>
+
+  <div id="swipe-view">
+    <div class="filter-label">time I have</div>
+    <div class="seg" id="budget-bar">
+      <button class="seg-btn" data-v="10min" onclick="setBudget('10min')">10 min</button>
+      <button class="seg-btn" data-v="30min" onclick="setBudget('30min')">30 min</button>
+      <button class="seg-btn" data-v="60min" onclick="setBudget('60min')">60 min</button>
+      <button class="seg-btn" data-v="all" onclick="setBudget('all')">any</button>
+    </div>
+    <div class="filter-label">energy I have</div>
+    <div class="seg" id="energy-bar">
+      <button class="seg-btn" data-v="low" onclick="setEnergy('low')">low</button>
+      <button class="seg-btn" data-v="med" onclick="setEnergy('med')">medium</button>
+      <button class="seg-btn" data-v="high" onclick="setEnergy('high')">high</button>
+      <button class="seg-btn" data-v="all" onclick="setEnergy('all')">any</button>
+    </div>
+
+    <div class="quad-strip" id="quad-strip"></div>
+
+    <div class="card-stack" id="card-stack"></div>
+    <div class="swipe-actions">
+      <div class="act"><button class="swipe-action-btn reject" onclick="skipCard()" title="Skip until tomorrow (←)">&#10005;</button><span>skip</span></div>
+      <div class="act"><button class="swipe-action-btn delegate" onclick="openDelegate()" title="Delegate to Claude (d)">&#9889;</button><span>claude</span></div>
+      <div class="act"><button class="swipe-action-btn two" onclick="startTwoMinutes()" title="Just 2 minutes (2)">2m</button><span>just start</span></div>
+      <div class="act"><button class="swipe-action-btn accept" onclick="acceptCard()" title="Queue for sprint (→)">&#10003;</button><span>queue</span></div>
+    </div>
+    <div class="card-hint" id="card-hint"></div>
+    <div id="sprint-queue"></div>
+  </div>
+
+  <!-- Sprint mode -->
+  <div class="mode-overlay" id="sprint-overlay">
+    <div class="sprint-header">
+      <div>
+        <div class="sprint-timer" id="sprint-timer">00:00</div>
+        <div class="sprint-progress" id="sprint-progress">0 / 0 tasks</div>
+      </div>
+      <button class="btn small" onclick="endSprint()">end sprint</button>
+    </div>
+    <div id="sprint-tasks"></div>
+  </div>
+
+  <!-- Two-minute mode -->
+  <div class="mode-overlay" id="two-overlay">
+    <div class="two-box" id="two-box">
+      <div class="two-label">just two minutes</div>
+      <div class="two-timer" id="two-timer">2:00</div>
+      <div class="two-title" id="two-title"></div>
+      <div class="two-sub" id="two-sub">Only the first step. You can stop when the timer ends.</div>
+      <div id="two-link"></div>
+      <div class="btn-row">
+        <button class="btn green" onclick="twoDone()">done &#10003;</button>
+        <button class="btn amber" onclick="twoKeepGoing()">keep going</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn" onclick="twoStop()">stop here, I started</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-strip" id="stats">
+    <div class="stat-item"><div class="stat-value" id="s-today">0</div><div class="stat-label">Today</div></div>
+    <div class="stat-item"><div class="stat-value" id="s-done">0</div><div class="stat-label">All done</div></div>
+    <div class="stat-item"><div class="stat-value" id="s-delegated">0</div><div class="stat-label">To Claude</div></div>
+    <div class="stat-item"><div class="stat-value" id="s-pending">0</div><div class="stat-label">In deck</div></div>
+  </div>
+
+  <div class="add-task-bar">
+    <input type="text" id="new-task" placeholder="Add to TickTick inbox…" onkeydown="if(event.key==='Enter')addTask()">
+    <button onclick="addTask()">add</button>
+  </div>
+  <div class="add-hint" id="add-hint"></div>
+</div>
+
+<!-- Shared modal: metacognition capture + delegate note -->
+<div class="meta-modal" id="meta-modal">
+  <div class="meta-box">
+    <h3 id="modal-title">How did you do it?</h3>
+    <div class="meta-subtitle" id="modal-sub">Capture your method so the system learns your patterns</div>
+    <textarea id="meta-notes"></textarea>
+    <div class="meta-actions">
+      <button class="meta-btn" id="modal-cancel">skip</button>
+      <button class="meta-btn primary" id="modal-ok">save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const EFFORT_MIN = { '10min': 10, '30min': 30, '60min': 60 };
+const ENERGY_RANK = { low: 1, med: 2, high: 3 };
+const Q_LABEL = { do: 'Do now', schedule: 'Schedule', delegate: 'Quick / hand off', later: 'Later' };
+const Q_SHORT = { do: 'Do', schedule: 'Plan', delegate: 'Quick', later: 'Later' };
+
+let allTasks = [];
+let deck = [];
+let deckIdx = 0;
+let sprintSize = 3;
+let budget = pref('budget', '30min');
+let energy = pref('energy', 'all');
+const actioned = new Set();     // ids handled this visit
+let sprintQueue = [];
+let sprintIdx = 0;
+let sprintTimer = null;
+let sprintSeconds = 0;
+let sessionId = null;
+let taskStart = null;
+let sprintCompleted = 0;
+let twoTask = null, twoTimer = null, twoLeft = 120, twoSession = null;
+
+// ── Init ──
+document.getElementById('date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+markSeg('budget-bar', budget);
+markSeg('energy-bar', energy);
+loadDeck();
+loadStats();
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (document.getElementById('meta-modal').classList.contains('active')) return;
+  if (document.getElementById('swipe-view').style.display === 'none') return;
+  if (e.key === 'ArrowRight') animOut('right', acceptCard);
+  else if (e.key === 'ArrowLeft') animOut('left', skipCard);
+  else if (e.key === 'd') openDelegate();
+  else if (e.key === '2') startTwoMinutes();
+});
+
+// ── Prefs (per device) ──
+function pref(k, d) { try { return localStorage.getItem('tt_' + k) || d; } catch (e) { return d; } }
+function savePref(k, v) { try { localStorage.setItem('tt_' + k, v); } catch (e) {} }
+
+// ── API ──
+async function api(path, data) {
+  const opts = data === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) };
+  const r = await fetch(path, opts);
+  if (r.status === 401) { location.href = '/login?next=/'; throw new Error('signed out'); }
+  const out = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(out.error || `Request failed (${r.status})`);
+  return out;
+}
+
+// ── Filters ──
+function markSeg(id, v) {
+  document.querySelectorAll(`#${id} .seg-btn`).forEach((b) => b.classList.toggle('active', b.dataset.v === v));
+}
+function setBudget(b) { budget = b; savePref('budget', b); markSeg('budget-bar', b); rebuildDeck(); }
+function setEnergy(e) { energy = e; savePref('energy', e); markSeg('energy-bar', e); rebuildDeck(); }
+
+function fits(t) {
+  if (budget !== 'all' && t.effort && EFFORT_MIN[t.effort] > EFFORT_MIN[budget]) return false;
+  if (energy !== 'all' && t.energy && ENERGY_RANK[t.energy] > ENERGY_RANK[energy]) return false;
+  return true;
+}
+
+function rebuildDeck() {
+  deck = allTasks.filter((t) => !actioned.has(t.id) && fits(t));
+  deckIdx = 0;
+  renderQuadStrip();
+  renderCards();
+  renderHint();
+  document.getElementById('s-pending').textContent = deck.length;
+}
+
+// ── Load ──
+async function loadDeck(manual) {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  if (!allTasks.length) document.getElementById('card-stack').innerHTML = '<div class="empty-deck">Loading your tasks…</div>';
+  try {
+    const r = await api('/api/tasks');
+    allTasks = r.tasks || [];
+    sprintSize = r.sprintSize || 3;
+    renderBanner(r.sources || {});
+    rebuildDeck();
+    if (manual) showToast('Refreshed');
+  } catch (e) {
+    document.getElementById('card-stack').innerHTML = `<div class="empty-deck"><div class="empty-emoji">&#128546;</div>Couldn't load tasks.<br><small>${esc(e.message)}</small></div>`;
+  } finally {
+    btn.classList.remove('spinning');
+  }
+}
+
+function renderBanner(sources) {
+  const msgs = [];
+  const names = { ticktick: 'TickTick', gmail: 'Gmail' };
+  for (const [k, s] of Object.entries(sources)) {
+    if (s.status === 'not_connected') msgs.push(`${names[k]} isn't connected. <a href="/setup">Connect it</a>`);
+    else if (s.status === 'error') msgs.push(`${names[k]} error: ${esc(s.note || '')}`);
+    else if (s.status === 'partial') msgs.push(`${names[k]}: ${esc(s.note || '')}`);
+  }
+  document.getElementById('banner').innerHTML = msgs.length ? `<div class="banner">${msgs.join('<br>')}</div>` : '';
+}
+
+function renderQuadStrip() {
+  const counts = { do: 0, schedule: 0, delegate: 0, later: 0 };
+  deck.forEach((t) => counts[t.quadrant]++);
+  const style = { do: 'pill-do', schedule: 'pill-schedule', delegate: 'pill-delegate', later: 'pill-later' };
+  document.getElementById('quad-strip').innerHTML = Object.keys(counts).map((q) =>
+    `<div class="quad-count ${style[q]}" title="${Q_LABEL[q]}"><b>${counts[q]}</b>${Q_SHORT[q]}</div>`).join('');
+}
+
+function renderHint() {
+  const left = Math.max(0, sprintSize - sprintQueue.length);
+  document.getElementById('card-hint').textContent = sprintQueue.length
+    ? `queue ${left} more to auto-start, or start now`
+    : `swipe right to queue · left to skip until tomorrow`;
+  const tags = [budget !== 'all' ? budget : null, energy !== 'all' ? `energy-${energy}` : null].filter(Boolean);
+  document.getElementById('add-hint').textContent = tags.length ? `will be tagged: ${tags.join(', ')}` : '';
+}
+
+// ── Cards ──
+function renderCards() {
+  const stack = document.getElementById('card-stack');
+  if (deckIdx >= deck.length) {
+    const hiddenByFilter = allTasks.filter((t) => !actioned.has(t.id) && !fits(t)).length;
+    stack.innerHTML = `<div class="empty-deck"><div class="empty-emoji">&#10024;</div>
+      ${allTasks.length ? 'Deck cleared. Nice work.' : 'Nothing here yet.'}
+      ${hiddenByFilter ? `<br><small>${hiddenByFilter} more hidden by your time/energy filters</small><br><button class="btn small" onclick="setBudget('all');setEnergy('all')">show everything</button>` : ''}</div>`;
+    return;
+  }
+  let out = '';
+  for (let i = 0; i < 3 && deckIdx + i < deck.length; i++) {
+    const t = deck[deckIdx + i];
+    const cls = i === 0 ? 'entering' : i === 1 ? 'behind-1' : 'behind-2';
+    const srcPill = t.source === 'email'
+      ? '<span class="pill pill-email">&#9733; email</span>'
+      : `<span class="pill pill-source">${esc(t.project)}${t.column ? ' · ' + esc(t.column) : ''}</span>`;
+    const due = t.dueLabel ? `<span class="pill ${t.overdue ? 'pill-overdue' : 'pill-due'}">${esc(t.dueLabel)}</span>` : '';
+    const anchor = t.anchor ? '<span class="pill pill-anchor">anchor</span>' : '';
+    out += `<div class="swipe-card q-${t.quadrant} ${cls}" data-id="${esc(t.id)}">
+      <span class="swipe-indicator swipe-right">Queue</span>
+      <span class="swipe-indicator swipe-left">Skip</span>
+      <div class="card-top">
+        <span class="pill pill-${t.quadrant}">${Q_LABEL[t.quadrant]}</span>${anchor}${due}${srcPill}
+      </div>
+      <div class="card-title">${esc(t.title)}</div>
+      ${t.context ? `<div class="card-context">${esc(t.context)}</div>` : ''}
+      ${t.link ? `<a class="card-link" href="${esc(t.link)}" target="_blank" rel="noopener">open ${t.source === 'email' || /mail\.google/.test(t.link) ? 'email' : 'link'} &#8599;</a>` : ''}
+      <div class="card-spacer"></div>
+      ${chipRow(t, 'time', ['10min', '30min', '60min'], ['10m', '30m', '60m'], t.effort, t.effortGuessed)}
+      ${chipRow(t, 'energy', ['low', 'med', 'high'], ['low', 'med', 'high'], t.energy, false)}
+    </div>`;
+  }
+  stack.innerHTML = out;
+  const top = stack.querySelector('.swipe-card.entering');
+  if (top) initSwipe(top);
+}
+
+function chipRow(t, kind, values, labels, current, guessed) {
+  return `<div class="chips"><span class="chips-label">${kind}</span>${values.map((v, i) =>
+    `<button class="chip ${current === v ? (guessed ? 'guess' : 'on') : ''}" onclick="setMeta('${kind}','${v}')">${labels[i]}</button>`).join('')}</div>`;
+}
+
+async function setMeta(kind, value) {
+  const t = deck[deckIdx];
+  if (!t) return;
+  const field = kind === 'time' ? 'effort' : 'energy';
+  const same = t[field] === value && !(field === 'effort' && t.effortGuessed);
+  const next = same ? null : value;
+  t[field] = next;
+  if (field === 'effort') t.effortGuessed = false;
+  renderCards();
+  try { await api('/api/meta', { task_id: t.id, [field]: next }); }
+  catch (e) { showToast(e.message, true); }
+}
+
+// ── Swipe physics ──
+function initSwipe(card) {
+  let startX = 0, startY = 0, dx = 0, dragging = false, decided = false, horizontal = false;
+  const onStart = (e) => {
+    if (['TEXTAREA', 'BUTTON', 'A'].includes(e.target.tagName)) return;
+    dragging = true; decided = false; horizontal = false; dx = 0;
+    const pt = e.touches ? e.touches[0] : e;
+    startX = pt.clientX; startY = pt.clientY;
+    card.style.transition = 'none';
+  };
+  const onMove = (e) => {
+    if (!dragging) return;
+    const pt = e.touches ? e.touches[0] : e;
+    const mx = pt.clientX - startX, my = pt.clientY - startY;
+    if (!decided && (Math.abs(mx) > 8 || Math.abs(my) > 8)) { decided = true; horizontal = Math.abs(mx) > Math.abs(my); }
+    if (!horizontal) return;
+    if (e.cancelable) e.preventDefault();
+    dx = mx;
+    card.style.transform = `translateX(${dx}px) rotate(${dx * 0.07}deg)`;
+    card.querySelector('.swipe-right').style.opacity = Math.min(1, Math.max(0, dx / 80));
+    card.querySelector('.swipe-left').style.opacity = Math.min(1, Math.max(0, -dx / 80));
+  };
+  const onEnd = () => {
+    if (!dragging) return;
+    dragging = false;
+    card.style.transition = 'transform .3s ease, opacity .3s ease';
+    if (horizontal && dx > 80) return animOut('right', acceptCard);
+    if (horizontal && dx < -80) return animOut('left', skipCard);
+    card.style.transform = '';
+    card.querySelector('.swipe-right').style.opacity = 0;
+    card.querySelector('.swipe-left').style.opacity = 0;
+  };
+  card.addEventListener('mousedown', onStart);
+  card.addEventListener('mousemove', onMove);
+  card.addEventListener('mouseup', onEnd);
+  card.addEventListener('mouseleave', onEnd);
+  card.addEventListener('touchstart', onStart, { passive: true });
+  card.addEventListener('touchmove', onMove, { passive: false });
+  card.addEventListener('touchend', onEnd);
+}
+
+function animOut(dir, cb) {
+  const card = document.querySelector('.swipe-card.entering');
+  if (!card) { if (cb) cb(); return; }
+  card.style.transition = 'transform .3s ease, opacity .3s ease';
+  card.style.transform = `translateX(${dir === 'right' ? 420 : -420}px) rotate(${dir === 'right' ? 18 : -18}deg)`;
+  card.style.opacity = '0';
+  setTimeout(() => { if (cb) cb(); }, 300);
+}
+
+function advance(t) {
+  actioned.add(t.id);
+  deckIdx++;
+  renderCards();
+  renderQuadStrip();
+  document.getElementById('s-pending').textContent = Math.max(0, deck.length - deckIdx);
+}
+
+// ── Card actions ──
+function acceptCard() {
+  const t = deck[deckIdx];
+  if (!t) return;
+  sprintQueue.push(t);
+  advance(t);
+  renderQueue();
+  renderHint();
+  if (sprintQueue.length >= sprintSize) startSprint();
+}
+
+async function skipCard() {
+  const t = deck[deckIdx];
+  if (!t) return;
+  advance(t);
+  try { await api('/api/dismiss', { task_id: t.id, reason: 'skip', task: slim(t) }); }
+  catch (e) { showToast(e.message, true); }
+}
+
+function openDelegate() {
+  const t = deck[deckIdx];
+  if (!t) return;
+  openModal({
+    title: 'Hand this to Claude',
+    sub: `Tags it "claude" in TickTick so Claude can pick it up.${t.source === 'email' ? ' Creates a TickTick task linking this email.' : ''}`,
+    placeholder: 'Anything Claude should know? (optional)',
+    ok: 'delegate', cancel: 'cancel',
+    onOk: async (note) => {
+      advance(t);
+      try { await api('/api/dismiss', { task_id: t.id, reason: 'delegate', note, task: slim(t) }); showToast('Handed to Claude'); loadStats(); }
+      catch (e) { showToast(e.message, true); }
+    },
+  });
+}
+
+// ── Sprint queue ──
+function renderQueue() {
+  const el = document.getElementById('sprint-queue');
+  if (!sprintQueue.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<button class="start-sprint-btn" onclick="startSprint()">start sprint · ${sprintQueue.length} task${sprintQueue.length > 1 ? 's' : ''}</button>` +
+    sprintQueue.map((t, i) =>
+      `<div class="sprint-queue-bar"><span>&#9889;</span><span class="sq-name">${esc(t.title)}</span>
+       <button class="sq-remove" onclick="removeFromQueue(${i})" aria-label="Remove">&#10005;</button></div>`).join('');
+}
+
+function removeFromQueue(i) {
+  const [t] = sprintQueue.splice(i, 1);
+  if (t) { actioned.delete(t.id); deck.splice(deckIdx, 0, t); renderCards(); renderQuadStrip(); }
+  renderQueue();
+  renderHint();
+}
+
+// ── Sprint mode ──
+function budgetSeconds() {
+  if (budget !== 'all') return EFFORT_MIN[budget] * 60;
+  return sprintQueue.reduce((s, t) => s + (EFFORT_MIN[t.effort] || 10) * 60, 0);
+}
+
+async function startSprint(opts = {}) {
+  if (!sprintQueue.length) return;
+  showMode('sprint-overlay');
+  sprintIdx = 0;
+  sprintCompleted = 0;
+  sprintSeconds = opts.startAt || 0;
+  taskStart = Date.now() - sprintSeconds * 1000;
+  sessionId = null;
+  renderSprintTasks();
+  tickSprint();
+  sprintTimer = setInterval(() => { sprintSeconds++; tickSprint(); }, 1000);
+  try { sessionId = (await api('/api/session', { action: 'start', budget, energy, kind: 'sprint' })).session_id; } catch (e) {}
+}
+
+function tickSprint() {
+  const cap = budgetSeconds();
+  const el = document.getElementById('sprint-timer');
+  el.textContent = `${fmt(sprintSeconds)} / ${fmt(cap)}`;
+  el.classList.toggle('over', sprintSeconds > cap);
+}
+
+function renderSprintTasks() {
+  document.getElementById('sprint-progress').textContent = `${sprintCompleted} / ${sprintQueue.length} done`;
+  document.getElementById('sprint-tasks').innerHTML = sprintQueue.map((t, i) => {
+    const cls = t._done ? 'completed' : t._passed ? 'passed' : i === sprintIdx ? 'current' : '';
+    const current = i === sprintIdx && !t._done;
+    return `<div class="sprint-task-item ${cls}">
+      <div class="sprint-task-name">${esc(t.title)}</div>
+      <div class="sprint-task-source">${esc(Q_LABEL[t.quadrant])} · ${t.source === 'email' ? 'starred email' : esc(t.project)}${t.effort ? ' · ' + esc(t.effort) : ''}</div>
+      ${current ? `<div class="btn-row">
+        <button class="btn green" onclick="completeCurrent()">mark complete</button>
+        ${t.link ? `<a class="btn small" href="${esc(t.link)}" target="_blank" rel="noopener">open &#8599;</a>` : ''}
+        <button class="btn small" onclick="passCurrent()">not now</button></div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function completeCurrent() {
+  const t = sprintQueue[sprintIdx];
+  if (!t) return;
+  openModal({
+    title: 'How did you do it?',
+    sub: 'Capture your method so the system learns your patterns',
+    placeholder: 'e.g. Found the old form in Drive, filled it from my phone, emailed it back…',
+    ok: 'save', cancel: 'skip',
+    onOk: (notes) => finishTask(t, notes),
+    onCancel: () => finishTask(t, ''),
+  });
+}
+
+async function finishTask(t, notes) {
+  const elapsed = Math.floor((Date.now() - taskStart) / 1000);
+  t._done = true;
+  sprintCompleted++;
+  try {
+    await api('/api/complete', { task_id: t.id, method_notes: notes, time_taken_sec: elapsed, session_id: sessionId, task: slim(t) });
+  } catch (e) { showToast(e.message, true); t._done = false; sprintCompleted--; }
+  nextSprintTask();
+}
+
+function passCurrent() {
+  const t = sprintQueue[sprintIdx];
+  if (t) { t._passed = true; actioned.delete(t.id); }
+  nextSprintTask();
+}
+
+function nextSprintTask() {
+  sprintIdx++;
+  taskStart = Date.now();
+  if (sprintIdx >= sprintQueue.length) endSprint();
+  else renderSprintTasks();
+}
+
+async function endSprint() {
+  clearInterval(sprintTimer);
+  const stats = { completed: sprintCompleted, skipped: sprintQueue.length - sprintCompleted };
+  if (sessionId) api('/api/session', { action: 'end', session_id: sessionId, stats }).catch(() => {});
+  showToast(sprintCompleted ? `Sprint done — ${sprintCompleted} task${sprintCompleted !== 1 ? 's' : ''} completed` : 'Sprint ended');
+  // Unfinished tasks go back in the deck
+  sprintQueue.filter((t) => !t._done).forEach((t) => { delete t._passed; actioned.delete(t.id); });
+  sprintQueue = [];
+  sessionId = null;
+  showMode(null);
+  renderQueue();
+  rebuildDeck();
+  loadStats();
+}
+
+// ── Two-minute start ──
+async function startTwoMinutes() {
+  const t = deck[deckIdx];
+  if (!t) return;
+  twoTask = t;
+  twoLeft = 120;
+  document.getElementById('two-title').textContent = t.title;
+  document.getElementById('two-sub').textContent = 'Only the first step. You can stop when the timer ends.';
+  document.getElementById('two-link').innerHTML = t.link ? `<a class="card-link" href="${esc(t.link)}" target="_blank" rel="noopener" style="margin-bottom:12px">open &#8599;</a>` : '';
+  document.getElementById('two-timer').textContent = '2:00';
+  showMode('two-overlay');
+  twoTimer = setInterval(() => {
+    twoLeft--;
+    document.getElementById('two-timer').textContent = twoLeft >= 0 ? `${Math.floor(twoLeft / 60)}:${String(twoLeft % 60).padStart(2, '0')}` : `+${fmt(-twoLeft)}`;
+    if (twoLeft === 0) {
+      document.getElementById('two-sub').textContent = "Two minutes. Stop, keep going, or call it done — all count.";
+      const box = document.getElementById('two-box');
+      box.classList.remove('ding'); void box.offsetWidth; box.classList.add('ding');
+      try { navigator.vibrate && navigator.vibrate([120, 80, 120]); } catch (e) {}
+    }
+  }, 1000);
+  twoSession = null;
+  try { twoSession = (await api('/api/session', { action: 'start', budget: '2min', energy, kind: 'two_minute' })).session_id; } catch (e) {}
+}
+
+function closeTwo() {
+  clearInterval(twoTimer);
+  const spent = 120 - twoLeft;
+  showMode(null);
+  return spent;
+}
+
+function twoDone() {
+  const t = twoTask;
+  const spent = 120 - twoLeft;
+  openModal({
+    title: 'How did you do it?',
+    sub: 'Two minutes turned into done. What got you over the hump?',
+    placeholder: 'e.g. Just opened the email and replied with one line…',
+    ok: 'save', cancel: 'skip',
+    onOk: (n) => twoFinish(t, n, spent), onCancel: () => twoFinish(t, '', spent),
+  });
+}
+
+async function twoFinish(t, notes, spent) {
+  closeTwo();
+  advance(t);
+  try {
+    await api('/api/complete', { task_id: t.id, method_notes: notes, time_taken_sec: spent, session_id: twoSession, task: slim(t) });
+    if (twoSession) api('/api/session', { action: 'end', session_id: twoSession, stats: { completed: 1 } }).catch(() => {});
+    showToast('Done. That counts.');
+  } catch (e) { showToast(e.message, true); }
+  loadStats();
+}
+
+function twoKeepGoing() {
+  const t = twoTask;
+  const spent = closeTwo();
+  if (twoSession) api('/api/session', { action: 'end', session_id: twoSession, stats: { completed: 0 } }).catch(() => {});
+  advance(t);
+  sprintQueue = [t, ...sprintQueue.filter((x) => x.id !== t.id)];
+  renderQueue();
+  startSprint({ startAt: spent });
+}
+
+async function twoStop() {
+  const t = twoTask;
+  closeTwo();
+  // Started but not done: log it, move the card to the back of today's deck
+  deck.splice(deckIdx, 1);
+  deck.push(t);
+  renderCards();
+  showToast('Started counts. It moved to the back of the deck.');
+  try {
+    await api('/api/dismiss', { task_id: t.id, reason: 'started', task: slim(t) });
+    if (twoSession) api('/api/session', { action: 'end', session_id: twoSession, stats: { completed: 0 } }).catch(() => {});
+  } catch (e) {}
+}
+
+// ── Modes ──
+function showMode(id) {
+  document.getElementById('swipe-view').style.display = id ? 'none' : '';
+  ['sprint-overlay', 'two-overlay'].forEach((m) => document.getElementById(m).classList.toggle('active', m === id));
+  window.scrollTo({ top: 0 });
+}
+
+// ── Modal ──
+function openModal({ title, sub, placeholder, ok, cancel, onOk, onCancel }) {
+  const m = document.getElementById('meta-modal');
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-sub').textContent = sub;
+  const ta = document.getElementById('meta-notes');
+  ta.value = '';
+  ta.placeholder = placeholder || '';
+  const okBtn = document.getElementById('modal-ok');
+  const cancelBtn = document.getElementById('modal-cancel');
+  okBtn.textContent = ok;
+  cancelBtn.textContent = cancel;
+  const close = () => m.classList.remove('active');
+  okBtn.onclick = () => { close(); onOk && onOk(ta.value.trim()); };
+  cancelBtn.onclick = () => { close(); onCancel && onCancel(); };
+  m.classList.add('active');
+  setTimeout(() => ta.focus(), 50);
+}
+
+// ── Stats ──
+async function loadStats() {
+  try {
+    const r = await api('/api/stats');
+    document.getElementById('s-today').textContent = r.completed_today || 0;
+    document.getElementById('s-done').textContent = r.completed || 0;
+    document.getElementById('s-delegated').textContent = r.delegated || 0;
+  } catch (e) {}
+}
+
+// ── Add task ──
+async function addTask() {
+  const input = document.getElementById('new-task');
+  const title = input.value.trim();
+  if (!title) return;
+  input.value = '';
+  try {
+    await api('/api/tasks', { title, effort: budget !== 'all' ? budget : null, energy: energy !== 'all' ? energy : null });
+    showToast('Added to TickTick inbox');
+    loadDeck();
+  } catch (e) { input.value = title; showToast(e.message, true); }
+}
+
+// ── Utils ──
+function slim(t) { return { title: t.title, project: t.project, quadrant: t.quadrant, effort: t.effort, energy: t.energy }; }
+function fmt(sec) { const m = Math.floor(sec / 60), s = sec % 60; return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`; }
+function esc(s) {
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function showToast(msg, err) {
+  const el = document.createElement('div');
+  el.className = 'toast' + (err ? ' err' : '');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, err ? 3500 : 2000);
+}
+</script>
+</body>
+</html>

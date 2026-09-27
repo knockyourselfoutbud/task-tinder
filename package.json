@@ -1,0 +1,17 @@
+{
+  "name": "task-tinder",
+  "version": "2.0.0",
+  "description": "Swipe-style task triage over TickTick + starred Gmail, on Cloudflare Workers",
+  "scripts": {
+    "dev": "wrangler d1 migrations apply task-tinder --local && wrangler dev",
+    "deploy": "wrangler d1 migrations apply task-tinder --remote && wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply task-tinder --local",
+    "db:migrate:remote": "wrangler d1 migrations apply task-tinder --remote",
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.142.0"
+  },
+  "private": true,
+  "type": "module"
+}

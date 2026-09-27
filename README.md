@@ -1,97 +1,102 @@
-# Task Tinder
+# Task Tinder: TickTick + Gmail edition
 
-A metacognition-forcing task triage system. Swipe through your tasks like cards, sprint through the ones you accept, and — critically — capture *how* you completed them so the system learns your patterns over time.
+A swipe deck over your real to-do list. Cards come from **TickTick** and **starred Gmail**, sorted by an Eisenhower matrix. You filter by how much time and energy you have right now, swipe to triage, and sprint through what you accept. When you finish a task you jot down *how* you did it, so you build up a record of your own methods over time.
 
-**The insight:** Most productivity tools track *that* you did something. This one tracks *how* you did it. Over time, you build a personal knowledge base of your own methods, shortcuts, and workflows — which Claude can then use to pre-draft, delegate, and learn your operating style.
+Forked from [loganhc-09/task-tinder](https://github.com/loganhc-09/task-tinder) by Logan Currie. The original keeps its own task list in a local SQLite database. This fork uses TickTick as the source of truth, runs on Cloudflare Workers so it works from your phone, and adds several changes aimed at ADHD.
 
-Built with Claude Code. By [Logan Currie](https://logancurrie.com).
+## What's different from the original
 
-> **Part of a larger system.** Task Tinder is one interface to [Claude Chief of Staff](https://github.com/loganhc-09/claude-chief-of-staff), the architecture for turning Claude Code into a persistent AI operational layer. See the [full system writeup](https://github.com/loganhc-09/claude-chief-of-staff) for how this fits alongside memory, briefings, and learning loops.
+| | Original | This fork |
+|---|---|---|
+| Where tasks live | Local SQLite with sample tasks | **TickTick** (all your lists, minus the ones you exclude) plus **starred Gmail** |
+| Where it runs | `localhost:5050` on one PC | **Cloudflare Worker**: phone and PC, installable to the Android home screen |
+| Order | Insertion order | **Eisenhower**: Do now → Schedule → Quick/hand off → Later |
+| Filters | 10/30/60 min (exact match) | **Time I have** (up to N minutes) + **Energy I have** (low/med/high) |
+| Starting | Sprint only after 3 cards | **Start after 1 card**, plus a **"just 2 minutes"** button on every card |
+| Completing | Local DB only | Completes the task in **TickTick** / **unstars** the email |
+| Delegate ⚡ | Writes `delegations.jsonl` | Adds a **`claude`** tag in TickTick so Claude (Cowork / Claude Code with the TickTick connector) can pick it up |
 
-## How It Works
+## How a card gets classified
 
-1. **Set your time budget** — 10, 30, or 60 minutes
-2. **Swipe through tasks** — queue them for a sprint, skip, or delegate to Claude
-3. **Sprint** — once you queue 3 tasks, sprint mode activates with a timer
-4. **Capture your method** — after each task, note how you did it (the metacognition moment)
-5. **Patterns emerge** — your completions log becomes a personal playbook
+**Important** if any of these are true:
+- The TickTick priority is Medium or High.
+- The task is in an "Anchor Tasks" column.
+- The task is in a list whose name contains "Priorities".
+- The task is tagged `important`.
+- It's an email that Gmail marked Important.
 
-### The Metacognition Moment
+**Urgent** if any of these are true:
+- It's due today or tomorrow, or it's overdue.
+- It's tagged `urgent`.
+- It's a starred email (someone is waiting on you).
 
-When you finish a task, a modal asks: *"How did you do it?"*
+| | Important | Not important |
+|---|---|---|
+| **Urgent** | 🔴 Do now | 🟢 Quick / hand off |
+| **Not urgent** | 🟣 Schedule | ⚪ Later |
 
-You might write: "Pulled up the old proposal, adapted the framing for this audience, sent from my phone."
+**Effort** comes from the first of these that applies:
+1. What you tap on the card (10m / 30m / 60m).
+2. A TickTick tag: `10min`, `30min`, `60min`, `quick`, `big`, and so on.
+3. The column: a "Small" column means 10 min.
+4. A guess. Emails are guessed at 10 min, and guesses show with a dashed outline.
 
-This is the forcing function. You're building a record of your actual workflows — not what a textbook says, but what *you* actually do. Over time, this becomes incredibly valuable for:
+**Energy** comes from what you tap on the card, or from the tags `energy-low`, `energy-med` and `energy-high`.
 
-- Teaching an AI assistant your patterns
-- Identifying which tasks you should always delegate
-- Noticing when you're overcomplicating things
-- Building templates from your own repeated methods
+Cards with unknown effort or energy are never hidden by the filters. Tap the chips as you go, and the filters get sharper over time.
 
-## Quick Start
+## Swipe actions
+
+- **→ / ✓ Queue:** adds the card to your sprint. The sprint starts automatically at 3 cards, or tap "start sprint" at any time.
+- **← / ✕ Skip:** hides the card until tomorrow. Nothing changes in TickTick.
+- **⚡ Claude:** tags the task `claude` in TickTick. For an email, it creates a TickTick Inbox task that links to the email.
+- **2m Just start:** starts a 2-minute timer. When it ends, choose *done*, *keep going* (turns it into a sprint) or *stop here*. Stopping still counts, and the card moves to the back of the deck.
+
+Desktop keyboard shortcuts: `←` `→` `d` `2`.
+
+## Setup
+
+See **[SETUP.md](SETUP.md)**. It takes about 20 minutes: you create a Cloudflare D1 database, register a TickTick developer app, create a Google OAuth client, set the secrets and deploy.
+
+To try it locally with fake data:
 
 ```bash
-git clone https://github.com/loganhc-09/task-tinder.git
-cd task-tinder
-pip install flask
-python server.py
+npm install
+cp .dev.vars.example .dev.vars   # MOCK=1, passcode "dev"
+npm run dev                       # http://localhost:8787
 ```
 
-Open [http://localhost:5050](http://localhost:5050). Sample tasks are pre-loaded.
+## Layout
 
-## Connecting to Your Own Data
-
-Task Tinder ships with sample tasks, but the real power comes from connecting it to your actual workflow. The `/api/tasks` endpoint accepts POST requests:
-
-```bash
-curl -X POST http://localhost:5050/api/tasks \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Review PR #42", "source": "email", "effort": "30min", "context": "From Sarah, needs review by EOD"}'
 ```
-
-### Source types
-- `email` — inbox items
-- `meeting` — follow-ups from calls
-- `calendar` — upcoming prep tasks
-- `task` — general tasks
-- `content` — content creation
-
-### Claude Code delegation
-
-When you delegate a task, it writes to `delegations.jsonl`. Point Claude Code at this file to pick up delegated work:
-
-```markdown
-# In your CLAUDE.md
-Check delegations.jsonl for tasks delegated from Task Tinder. 
-Pick up pending items and mark them complete.
+src/worker.js     routes, auth gate, API
+src/triage.js     classification: quadrant, effort, energy, sort order
+src/ticktick.js   TickTick Open API client + OAuth
+src/gmail.js      Gmail API client + OAuth
+src/auth.js       passcode login, signed session cookie
+src/pages.js      login + /setup pages, PWA manifest/icon
+src/index.html    the swipe UI (vanilla JS, no build step)
+src/mock.js       fake TickTick/Gmail for MOCK=1
+migrations/       D1 schema
+test/             node --test unit tests for triage rules
 ```
 
 ## API
 
+All endpoints need a signed-in session cookie.
+
 | Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/tasks` | GET | List pending tasks (optional `?budget=10min`) |
-| `/api/tasks` | POST | Add a new task |
-| `/api/complete` | POST | Complete a task with method notes |
-| `/api/dismiss` | POST | Skip or delegate a task |
-| `/api/session` | POST | Start/end a sprint session |
-| `/api/stats` | GET | Lifetime stats |
-| `/api/patterns` | GET | Your metacognition patterns |
-
-## Stack
-
-- **Frontend:** Vanilla HTML/CSS/JS — no build step, no dependencies
-- **Backend:** Python + Flask
-- **Database:** SQLite (auto-created on first run)
-- **Design:** Outfit + DM Mono fonts, warm neutral palette
-
-## Philosophy
-
-This came from a personal operating system I built with Claude Code. The core idea: your AI assistant should learn from *how you work*, not just *what you tell it to do*. Task Tinder is the interface that captures that learning.
-
-The swipe UX is intentional — it forces fast decisions (do it, skip it, delegate it) rather than letting tasks sit in an infinite backlog. The sprint timer creates urgency. The metacognition capture creates learning.
+|---|---|---|
+| `/api/tasks` | GET | The deck: all cards plus the state of each source |
+| `/api/tasks` | POST | `{title, effort?, energy?}` adds a task to the TickTick Inbox |
+| `/api/complete` | POST | `{task_id, method_notes, time_taken_sec}` completes the task in TickTick, or unstars the email |
+| `/api/dismiss` | POST | `{task_id, reason: skip\|delegate\|started, note?}` |
+| `/api/meta` | POST | `{task_id, effort?, energy?}` stores your tags for a card |
+| `/api/session` | POST | Start or end a sprint |
+| `/api/stats` | GET | Counts and recent completions |
+| `/api/patterns` | GET | Your "how I did it" notes (the learning data) |
+| `/api/delegations` | GET | What you've handed to Claude |
 
 ## License
 
-MIT
+MIT (same as upstream).

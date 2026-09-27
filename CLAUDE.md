@@ -1,33 +1,40 @@
-# Task Tinder
+# Task Tinder (TickTick + Gmail edition)
 
-Metacognition-forcing task triage system.
+A swipe-style triage deck over TickTick and starred Gmail, running as a Cloudflare Worker with D1. It's forked from loganhc-09/task-tinder, which used Flask and SQLite.
 
 ## Architecture
 
-- `server.py` — Flask backend on port 5050. SQLite database (`task_tinder.db`), auto-created on first run with sample data from `sample_tasks.json`.
-- `index.html` — Single-page frontend. Vanilla JS, no build step. Swipe gestures, sprint mode, metacognition capture modal.
-- `delegations.jsonl` — Append-only log of tasks delegated to Claude. Each line is a JSON object with `task`, `note`, `delegated_at`, `status`.
+- `src/worker.js` handles routing, the passcode gate and every `/api/*` handler. `buildDeck()` merges TickTick tasks with starred Gmail threads. It skips any email whose thread or message ID already appears in a TickTick task, then hides today's skips and recent delegations.
+- `src/triage.js` holds the pure classification rules: Eisenhower quadrant, effort, energy and sort order. Unit tests are in `test/`. Keep this file free of I/O.
+- `src/ticktick.js` and `src/gmail.js` are the API clients plus OAuth. Tokens live in the D1 `kv` table. TickTick updates always GET the full task and POST it back, so no fields get wiped.
+- `src/index.html` is the single-page UI in vanilla JS. The Worker imports it as text. Filtering by time and energy happens on the client.
+- `src/mock.js` holds fake data when `MOCK=1`. Don't put real personal data here, because the repo is public.
 
-## Key flows
+## D1 tables
 
-1. **Triage** — User swipes cards right (queue for sprint), left (skip), or taps delegate (sends to Claude)
-2. **Sprint** — 3 queued tasks trigger sprint mode with a running timer
-3. **Metacognition capture** — After completing each sprint task, a modal asks "how did you do it?" Method notes are stored in `completions` table
-4. **Patterns** — `/api/patterns` returns all method notes with task metadata for pattern analysis
+- `kv`: OAuth tokens
+- `task_meta`: effort and energy you set per card, keyed by `tt:<projectId>:<taskId>` or `gm:<threadId>`
+- `dismissals`: `skip` (hidden until tomorrow), `delegate` (hidden for 7 days) and `started` (2-minute starts)
+- `sessions`: sprint and two-minute sessions
+- `completions`: the "how did you do it?" method notes (the learning data)
 
-## Database tables
+## Delegation flow (for Claude)
 
-- `tasks` — All tasks with status (pending/completed/delegated/skipped)
-- `sessions` — Sprint sessions with completion stats
-- `completions` — Method notes + time taken (the learning data)
+When John taps ⚡ on a card:
 
-## Adding new task sources
+- For a TickTick task, the task gets the tag **`claude`**. His optional note is appended to the task content as "🤖 For Claude: …".
+- For a starred email, a new TickTick Inbox task `[subject](gmail link)` is created with the tag `claude`.
 
-POST to `/api/tasks` with `{title, source, effort, context}`. Source types: email, meeting, calendar, task, content. To add a new source, just use a new source string — the frontend auto-generates badge styles.
+To pick up delegated work, use the TickTick connector:
 
-## Delegation flow
+1. Find open tasks tagged `claude`.
+2. Do the work, or draft it for John to review. Don't send anything on his behalf without asking.
+3. Complete the task in TickTick, or remove the `claude` tag and add a comment if John needs to finish it.
 
-When a task is delegated, it's written to `delegations.jsonl`. To pick up delegated work:
-1. Read `delegations.jsonl` for entries with `"status": "pending"`
-2. Do the work
-3. Update the task via `/api/complete` with method notes describing what you did
+## Commands
+
+```bash
+npm run dev      # local, MOCK=1 via .dev.vars
+npm test         # triage unit tests
+npm run deploy   # applies D1 migrations remotely, then deploys
+```
