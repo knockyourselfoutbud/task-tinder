@@ -34,7 +34,7 @@ function seed() {
   tasks = [
     { id: 't1', projectId: 'inbox', title: 'Call dentist to reschedule cleaning', priority: 0, dueDate: isoIn(0), tags: ['10min'], createdTime: isoIn(-3) },
     { id: 't2', projectId: 'p-admin', title: 'Renew car registration', priority: 5, dueDate: isoIn(-2), columnId: 'c-small', createdTime: isoIn(-20) },
-    { id: 't3', projectId: 'p-admin', title: 'Review homeowner insurance renewal', priority: 3, columnId: 'c-anchor', content: 'Compare deductible options before the renewal date.', createdTime: isoIn(-9) },
+    { id: 't3', projectId: 'p-admin', title: 'Review homeowner insurance renewal', priority: 3, columnId: 'c-anchor', content: '🎯 First move: Open last year\'s policy PDF and note the deductible.\n\nCompare deductible options before the renewal date.', createdTime: isoIn(-9) },
     { id: 't4', projectId: 'p-admin', title: '[Invoice from plumbing company](https://mail.google.com/mail/u/0/#all/abc123)', priority: 0, content: 'Invoice is due net 30. Pay online through the portal.', columnId: 'c-small', createdTime: isoIn(-40) },
     { id: 't5', projectId: 'p-house', title: 'Winterize the hose bibs', priority: 3, dueDate: isoIn(12), tags: ['energy-high', '60min'], createdTime: isoIn(-5) },
     { id: 't6', projectId: 'p-house', title: 'Order replacement furnace filter', priority: 0, tags: ['energy-low'], createdTime: isoIn(-12) },

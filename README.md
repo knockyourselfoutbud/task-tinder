@@ -1,6 +1,6 @@
 # Task Tinder: TickTick + Gmail edition
 
-A swipe deck over your real to-do list. Cards come from **TickTick** and **starred Gmail**, ordered by your TickTick priority. You filter by how much time and energy you have right now, swipe to triage, and sprint through what you accept. When you finish a task you jot down *how* you did it, so you build up a record of your own methods over time.
+A swipe deck over your real to-do list. Cards come from **TickTick** and **starred Gmail**, ordered by your TickTick priority. You filter by how much time and energy you have right now, swipe to triage, and play through what you accept against a timer, earning XP. When you finish a task you jot down what happened, so you build up a record of your own methods over time.
 
 Forked from [loganhc-09/task-tinder](https://github.com/loganhc-09/task-tinder) by Logan Currie. The original keeps its own task list in a local SQLite database. This fork uses TickTick as the source of truth, runs on Cloudflare Workers so it works from your phone, and adds several changes aimed at ADHD.
 
@@ -13,7 +13,7 @@ Forked from [loganhc-09/task-tinder](https://github.com/loganhc-09/task-tinder) 
 | Order | Insertion order | **TickTick priority**: High → Medium → Low → none. Within a priority, overdue or due-soon tasks come first, then the oldest |
 | Priority | — | Change it on any card (saved to TickTick), filter the deck by priority, and use **Sort mode** to set or clear priorities by swiping |
 | Filters | 10/30/60 min (exact match) | **Priority lane** + **Time I have** (up to N minutes) + **Energy I have** (low/med/high) |
-| Starting | Sprint only after 3 cards | **Start after 1 card**, plus a **"just 2 minutes"** button on every card |
+| Starting | Sprint only after 3 cards | **LET'S GO** opens a single-task in-play card with a 5/10/25-minute timer, and **DONE ✓** closes a card in one tap |
 | Completing | Local DB only | Completes the task in **TickTick** / **unstars** the email |
 | Delegate ⚡ | Writes `delegations.jsonl` | Adds a **`claude`** tag in TickTick so Claude (Cowork / Claude Code with the TickTick connector) can pick it up |
 
@@ -21,10 +21,22 @@ Forked from [loganhc-09/task-tinder](https://github.com/loganhc-09/task-tinder) 
 
 **Do mode** is for working through tasks.
 
-- The lane strip at the top shows counts for **All / High / Med / Low / None**. Tap a lane to work through only those tasks.
-- Every card has a **priority** row (High, Med, Low, –). A change is saved to TickTick immediately, so your lists and widgets always match.
-- When you have more than `HIGH_LIMIT` Highs (5 by default), a nudge suggests you review them.
-- High and Medium cards that have been open for 14 days or more show a red "open N days" badge.
+- **Stats panel.** A daily-goal ring (tap it to change the goal), XP earned today, your combo multiplier with a countdown, and your level.
+- **Strips.**
+  - **ROUND** is a time-of-day suggestion. Tap **use** to apply its time and energy filters.
+  - **COACH** is a one-line nudge.
+  - **DUE** shows your most urgent overdue or due-today task, with **Jump to it**.
+- **Priority lanes.** Tap **All / High / Med / Low / None / ★Mail** to work through one lane. If you have more than `HIGH_LIMIT` Highs (5 by default), a nudge links to Sort mode on High.
+- **Card chips.** Tap the chips on a card to cycle through the options:
+  - **Size:** S·10M, M·30M, L·60M. It sets the default timer.
+  - **Priority:** saved to TickTick.
+  - **Energy.**
+- **More on each card.**
+  - ✎ edits the title, first move, notes and due date in TickTick.
+  - ⚡ hands the task to Claude.
+  - High and Medium cards open for 14 days or more show a red "open N days" badge.
+- **First move** is the smallest next step. It's saved as a `🎯 First move:` line in the TickTick notes. Tap the box to write it. When `ANTHROPIC_API_KEY` is set, a ✨ **suggest** button asks Claude for a draft.
+- **🎲 Pick for me** puts the smallest top-priority card on top. The dots under the deck show how many cards you've closed.
 
 **Sort mode** goes through one priority at a time. It starts on **Unsorted** (tasks with no priority), and you can switch to **High**, **Med** or **Low** to re-sort those. The count on the Sort tab is how many tasks have no priority. The "review Highs" nudge in Do mode opens Sort mode on High. Each card gets one swipe:
 
@@ -54,14 +66,30 @@ Starred emails show up as unsorted cards. When you give one a priority, it becom
 
 Cards with unknown effort or energy are never hidden by the time and energy filters. Tasks tagged `claude` (delegated to Claude) are left out of the deck.
 
-## Do-mode swipes
+## Do-mode actions
 
-- **→ / ✓ Queue:** adds the card to your sprint. The sprint starts automatically at 3 cards, or tap "start sprint" at any time.
-- **← / ✕ Skip:** hides the card until tomorrow. Nothing changes in TickTick.
-- **⚡ Claude:** tags the task `claude` in TickTick. For an email, it creates a TickTick Inbox task that links to the email.
-- **2m Just start:** starts a 2-minute timer. When it ends, choose *done*, *keep going* (turns it into a sprint) or *stop here*. Stopping still counts, and the card moves to the back of the deck.
+- **→ / LET'S GO** opens the black **in-play** card, which shows:
+  - the first move;
+  - a countdown timer (5 / 10 / 25 min, defaulting to the card's size);
+  - a one-line "What happened?" box;
+  - **DONE ✓**;
+  - **shelve it**, which puts the card at the back of today's deck.
+- **DONE ✓** completes the task in TickTick, or unstars the email, straight from the deck. A one-line "What happened?" box slides up. You can fill it in or skip it.
+- **← / NOT TODAY** hides the card until tomorrow. Nothing changes in TickTick.
+- **Outcome notes** are saved in the app's history and also appended to the TickTick task as `✅ Done Sep 28: …` before it's completed.
 
-Desktop keyboard shortcuts: `←` `→` `d` `2`.
+### XP
+
+| | XP |
+|---|---|
+| Size | S 10, M 25, L 50, unknown 15 |
+| Priority bonus | High +10, Medium +5 |
+| Combo | Each completion within 30 min of the last raises the multiplier (×2, then ×3 max) |
+| Beat the clock | +8 for finishing an in-play task before its timer runs out |
+
+Levels start at 0, 100, 300, 600, 1000, 1500… XP.
+
+Desktop keyboard shortcuts: `→` let's go · `←` not today · `d` done · `e` edit.
 
 ## Setup
 
@@ -98,12 +126,15 @@ All endpoints need a signed-in session cookie.
 |---|---|---|
 | `/api/tasks` | GET | The deck: all cards plus the state of each source |
 | `/api/tasks` | POST | `{title, effort?, energy?}` adds a task to the TickTick Inbox |
-| `/api/complete` | POST | `{task_id, method_notes, time_taken_sec}` completes the task in TickTick, or unstars the email |
+| `/api/complete` | POST | `{task_id, method_notes, time_taken_sec, timer_sec}` completes the task in TickTick (appending the note) or unstars the email. Returns XP and combo |
 | `/api/dismiss` | POST | `{task_id, reason: skip\|delegate\|started, note?}` |
 | `/api/meta` | POST | `{task_id, effort?, energy?}` stores your tags for a card |
+| `/api/edit` | POST | `{task_id, title?, notes?, first_move?, due?}` edits a TickTick task |
+| `/api/firstmove` | POST | `{task_id, text}` saves the first move |
+| `/api/suggest` | POST | Drafts a first move with Claude (needs `ANTHROPIC_API_KEY`) |
+| `/api/goal` | POST | `{goal}` sets the daily goal |
 | `/api/priority` | POST | `{task_id, priority: 0\|1\|3\|5}` saves the priority to TickTick. For an email, it creates a TickTick task and unstars the email |
-| `/api/session` | POST | Start or end a sprint |
-| `/api/stats` | GET | Counts and recent completions |
+| `/api/stats` | GET | Goal, XP, level, combo and counts |
 | `/api/patterns` | GET | Your "how I did it" notes (the learning data) |
 | `/api/delegations` | GET | What you've handed to Claude |
 

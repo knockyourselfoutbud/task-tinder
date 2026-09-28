@@ -148,13 +148,17 @@ export function cardFromTickTick(task, project, columnsById, meta, cfg) {
     tags, column, source: 'ticktick', kind: task.kind,
     itemCount: (task.items || []).length, override: meta?.effort,
   });
+  const { firstMove, rest } = extractFirstMove(task.content || task.desc || '');
 
   return {
     id: `tt:${task.projectId}:${task.id}`,
     source: 'ticktick',
     title: text || '(untitled)',
     link: url,
-    context: plainSnippet(task.content || task.desc),
+    context: plainSnippet(rest),
+    notes: rest,
+    firstMove,
+    dueDate: dueDay,
     project: projectName,
     projectId: task.projectId,
     column: column && column !== 'Not Sectioned' ? column : null,
@@ -187,6 +191,9 @@ export function cardFromEmail(thread, meta, cfg) {
     title: thread.subject || '(no subject)',
     link: `https://mail.google.com/mail/u/0/#all/${thread.threadId}`,
     context: [thread.from, plainSnippet(thread.snippet, 130)].filter(Boolean).join(' — '),
+    notes: '',
+    firstMove: meta?.first_move || null,
+    dueDate: null,
     project: 'Starred',
     projectId: null,
     column: null,
@@ -233,4 +240,61 @@ export function fitsFilters(card, budget, energy, lane = 'all') {
   if (budget && budget !== 'all' && card.effort && EFFORT_MIN[card.effort] > EFFORT_MIN[budget]) return false;
   if (energy && energy !== 'all' && card.energy && ENERGY_RANK[card.energy] > ENERGY_RANK[energy]) return false;
   return true;
+}
+
+// ── First move (stored as a line in the TickTick notes) ──
+
+const FIRST_MOVE_RE = /^[ \t]*(?:🎯[ \t]*)?first move:[ \t]*(.+)$/im;
+
+export function extractFirstMove(content) {
+  const text = content || '';
+  const m = FIRST_MOVE_RE.exec(text);
+  if (!m) return { firstMove: null, rest: text };
+  const rest = (text.slice(0, m.index) + text.slice(m.index + m[0].length)).replace(/^\s*\n/, '').trim();
+  return { firstMove: m[1].trim(), rest };
+}
+
+export function withFirstMove(content, firstMove) {
+  const { rest } = extractFirstMove(content);
+  const line = (firstMove || '').trim();
+  if (!line) return rest;
+  return `🎯 First move: ${line}` + (rest ? `\n\n${rest}` : '');
+}
+
+// ── Game layer ──
+
+export const SIZE_OF_EFFORT = {
+  '10min': { letter: 'S', label: 'S · 10M', timer: 5, xp: 10 },
+  '30min': { letter: 'M', label: 'M · 30M', timer: 10, xp: 25 },
+  '60min': { letter: 'L', label: 'L · 60M', timer: 25, xp: 50 },
+};
+const PRIORITY_XP = { high: 10, med: 5, low: 0, none: 0 };
+export const BEAT_CLOCK_XP = 8;
+export const MAX_COMBO = 3;
+
+export function xpBase(card) {
+  const size = SIZE_OF_EFFORT[card?.effort];
+  return (size ? size.xp : 15) + (PRIORITY_XP[card?.lane] || 0);
+}
+
+export function xpAward(card, combo, beatClock) {
+  return Math.round(xpBase(card) * Math.min(Math.max(combo || 1, 1), MAX_COMBO)) + (beatClock ? BEAT_CLOCK_XP : 0);
+}
+
+const LEVEL_NAMES = ['Warming Up', 'In the Zone', 'On a Roll', 'Locked In', 'Unstoppable', 'Legend'];
+
+// Level n starts at 50·n·(n-1) XP: 0, 100, 300, 600, 1000, 1500…
+export function levelFor(totalXp) {
+  const xp = Math.max(0, totalXp || 0);
+  let level = 1;
+  while (50 * (level + 1) * level <= xp) level++;
+  const start = 50 * level * (level - 1);
+  const next = 50 * (level + 1) * level;
+  return {
+    level,
+    name: LEVEL_NAMES[Math.min(level - 1, LEVEL_NAMES.length - 1)],
+    into: xp - start,
+    span: next - start,
+    toNext: next - xp,
+  };
 }

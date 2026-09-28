@@ -7,7 +7,9 @@ A swipe-style triage deck over TickTick and starred Gmail, running as a Cloudfla
 - `src/worker.js` handles routing, the passcode gate and every `/api/*` handler. `buildDeck()` merges TickTick tasks with starred Gmail threads. It skips any email whose thread or message ID already appears in a TickTick task, then hides today's skips and recent delegations.
 - `src/triage.js` holds the pure classification rules: the priority lane (straight from TickTick priority 5/3/1/0), due and age badges, effort, energy and sort order. Unit tests are in `test/`. Keep this file free of I/O.
 - Priority changes (`/api/priority`) write to TickTick immediately. Giving an email a priority turns it into a TickTick task and unstars it.
-- The UI has two modes. **Do** works through tasks and can filter by lane. **Sort** goes through one lane at a time (Unsorted, High, Med or Low): swipe up for High, right for Medium, down for Low, left for no priority. There's also a "keep" button and undo.
+- First move is stored as a `🎯 First move:` line in the TickTick notes (parsed by `extractFirstMove`). For emails it's stored in `task_meta.first_move`. `/api/edit` edits the title (keeping any Gmail link), notes, first move and due date. `/api/suggest` calls the Anthropic API when `ANTHROPIC_API_KEY` is set.
+- The game layer is computed server-side in `apiComplete`/`apiStats`. XP comes from `xpAward` in triage.js. The combo window is 30 min (max ×3). Beat the clock is +8. The daily goal is stored in `kv`.
+- The UI has two modes. **Do** works through tasks and can filter by lane. LET'S GO opens the black in-play card (timer, first move, outcome, done, shelve). DONE ✓ completes a card straight from the deck. **Sort** goes through one lane at a time (Unsorted, High, Med or Low): swipe up for High, right for Medium, down for Low, left for no priority. There's also a "keep" button and undo.
 - `src/ticktick.js` and `src/gmail.js` are the API clients plus OAuth. Tokens live in the D1 `kv` table. TickTick updates always GET the full task and POST it back, so no fields get wiped.
 - `src/index.html` is the single-page UI in vanilla JS. The Worker imports it as text. Filtering by time and energy happens on the client.
 - `src/mock.js` holds fake data when `MOCK=1`. Don't put real personal data here, because the repo is public.
@@ -15,10 +17,10 @@ A swipe-style triage deck over TickTick and starred Gmail, running as a Cloudfla
 ## D1 tables
 
 - `kv`: OAuth tokens
-- `task_meta`: effort and energy you set per card, keyed by `tt:<projectId>:<taskId>` or `gm:<threadId>`
+- `task_meta`: effort, energy and (for emails) first move that you set per card, keyed by `tt:<projectId>:<taskId>` or `gm:<threadId>`
 - `dismissals`: `skip` (hidden until tomorrow), `delegate` (hidden for 7 days) and `started` (2-minute starts)
 - `sessions`: sprint and two-minute sessions
-- `completions`: the "how did you do it?" method notes (the learning data), with the task's `lane` at completion
+- `completions`: the "what happened?" outcome notes (the learning data), plus `lane`, `xp`, `combo`, `beat_clock` and local `day`
 
 ## Delegation flow (for Claude)
 

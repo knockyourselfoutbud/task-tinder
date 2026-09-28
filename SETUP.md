@@ -95,6 +95,16 @@ Edit the `[vars]` section of `wrangler.toml`, then run `npm run deploy` again.
 
 If the banner says "couldn't load: Inbox", your TickTick account may need its real inbox ID. Set `TICKTICK_INBOX_ID` under `[vars]` in `wrangler.toml`.
 
+## Optional: ✨ first-move suggestions
+
+Create an API key at https://console.anthropic.com (this needs a few dollars of prepaid credit). Then run:
+
+```bash
+npx wrangler secret put ANTHROPIC_API_KEY
+```
+
+The ✨ **suggest** button appears straight away, with no redeploy. It uses `claude-haiku-4-5` by default. To use a different model, set `AI_MODEL` under `[vars]`. It costs a fraction of a cent per suggestion.
+
 ## Security notes
 
 - Everything sits behind your passcode. The session cookie is HMAC-signed, HttpOnly and lasts 90 days.

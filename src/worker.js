@@ -6,10 +6,11 @@ import {
 import { loginPage, setupPage, privacyPage, termsPage, MANIFEST, ICON_SVG } from './pages.js';
 import { ticktickClient, ticktickAuthUrl, ticktickExchangeCode, NotConnected } from './ticktick.js';
 import { gmailClient, googleAuthUrl, googleExchangeCode } from './gmail.js';
-import { kvDelete } from './store.js';
 import {
   cardFromTickTick, cardFromEmail, sortDeck, localDay, stripEmoji, EFFORTS, ENERGIES, PRIORITY_OF_LANE,
+  splitMarkdownLink, withFirstMove, xpAward, levelFor, MAX_COMBO,
 } from './triage.js';
+import { kvGet, kvSet, kvDelete } from './store.js';
 
 const DEFAULT_EXCLUDES = 'Work,Someday,Backlog,Shopping';
 
@@ -65,7 +66,7 @@ async function buildDeck(env) {
 
   // Your triage state from D1
   const [metaRows, hiddenRows] = await Promise.all([
-    env.DB.prepare('SELECT task_key, effort, energy FROM task_meta').all(),
+    env.DB.prepare('SELECT task_key, effort, energy, first_move FROM task_meta').all(),
     env.DB.prepare(
       `SELECT DISTINCT task_key FROM dismissals
        WHERE (reason = 'skip' AND day = ?) OR (reason = 'delegate' AND day >= date(?, '-7 days'))`
@@ -128,25 +129,56 @@ async function buildDeck(env) {
     today: c.today,
     sprintSize: parseInt(env.SPRINT_SIZE || '3', 10) || 3,
     highLimit: parseInt(env.HIGH_LIMIT || '5', 10) || 5,
+    features: { suggest: !!env.ANTHROPIC_API_KEY },
   };
 }
 
 // ── API handlers ──
 
+function shortDate(tz) {
+  return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: tz });
+}
+
+const COMBO_WINDOW_MIN = 30;
+
 async function apiComplete(env, data) {
   const k = parseKey(data.task_id);
   if (!k) throw new HttpError(400, 'task_id required');
-  if (k.source === 'ticktick') await ticktickClient(env).complete(k.projectId, k.taskId);
-  else await gmailClient(env).unstarThread(k.threadId);
+  const c = cfg(env);
+  const note = String(data.method_notes || '').trim().slice(0, 500);
+
+  if (k.source === 'ticktick') {
+    const tt = ticktickClient(env);
+    if (note) {
+      // Keep the outcome with the task in TickTick too
+      const full = await tt.getTask(k.projectId, k.taskId);
+      full.content = `${full.content ? full.content.trimEnd() + '\n\n' : ''}✅ Done ${shortDate(c.tz)}: ${note}`;
+      await tt.update(full);
+    }
+    await tt.complete(k.projectId, k.taskId);
+  } else {
+    await gmailClient(env).unstarThread(k.threadId);
+  }
+
+  // Combo: another completion within the window keeps the chain going
+  const last = await env.DB.prepare(
+    `SELECT combo, (julianday('now') - julianday(completed_at)) * 1440 AS mins FROM completions ORDER BY id DESC LIMIT 1`
+  ).first();
+  const combo = last && last.mins <= COMBO_WINDOW_MIN ? Math.min((last.combo || 1) + 1, MAX_COMBO) : 1;
+  const taken = Math.max(0, parseInt(data.time_taken_sec || 0, 10) || 0);
+  const timer = Math.max(0, parseInt(data.timer_sec || 0, 10) || 0);
+  const beat = timer > 0 && taken > 0 && taken <= timer ? 1 : 0;
   const t = data.task || {};
+  const xp = xpAward(t, combo, beat);
+
   await env.DB.prepare(
-    `INSERT INTO completions (task_key, task_title, source, project, lane, effort, energy, method_notes, time_taken_sec, session_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO completions (task_key, task_title, source, project, lane, effort, energy, method_notes, time_taken_sec, session_id, xp, combo, beat_clock, day)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     data.task_id, t.title || '', k.source, t.project || '', t.lane || '', t.effort || '', t.energy || '',
-    data.method_notes || '', Math.max(0, parseInt(data.time_taken_sec || 0, 10) || 0), data.session_id || null
+    note, taken, data.session_id || null, xp, combo, beat, c.today
   ).run();
-  return { ok: true };
+  return { ok: true, xp, combo, beat_clock: !!beat, stats: await apiStats(env) };
 }
 
 async function apiDismiss(env, data) {
@@ -265,20 +297,129 @@ async function apiSession(env, data) {
 async function apiStats(env) {
   const today = cfg(env).today;
   const q = (sql, ...b) => env.DB.prepare(sql).bind(...b).first();
-  const [done, doneToday, delegated, sprints, starts] = await Promise.all([
+  const [done, doneToday, delegated, xpAll, xpToday, last, goal] = await Promise.all([
     q('SELECT COUNT(*) n FROM completions'),
-    q(`SELECT COUNT(*) n FROM completions WHERE date(completed_at) = ?`, today),
+    q(`SELECT COUNT(*) n FROM completions WHERE COALESCE(day, date(completed_at)) = ?`, today),
     q(`SELECT COUNT(*) n FROM dismissals WHERE reason = 'delegate'`),
-    q(`SELECT COUNT(*) n FROM sessions WHERE completed_at IS NOT NULL AND kind = 'sprint'`),
-    q(`SELECT COUNT(*) n FROM dismissals WHERE reason = 'started'`),
+    q('SELECT COALESCE(SUM(xp), 0) n FROM completions'),
+    q(`SELECT COALESCE(SUM(xp), 0) n FROM completions WHERE COALESCE(day, date(completed_at)) = ?`, today),
+    q(`SELECT combo, (julianday('now') - julianday(completed_at)) * 1440 AS mins FROM completions ORDER BY id DESC LIMIT 1`),
+    kvGet(env, 'daily_goal'),
   ]);
-  const recent = await env.DB.prepare(
-    'SELECT task_title, method_notes, time_taken_sec, completed_at FROM completions ORDER BY id DESC LIMIT 10'
-  ).all();
+  const comboLive = last && last.mins <= COMBO_WINDOW_MIN;
   return {
-    completed: done.n, completed_today: doneToday.n, delegated: delegated.n, sessions: sprints.n,
-    two_minute_starts: starts.n, recent_completions: recent.results || [],
+    completed: done.n,
+    completed_today: doneToday.n,
+    delegated: delegated.n,
+    goal: goal || 6,
+    xp_total: xpAll.n,
+    xp_today: xpToday.n,
+    level: levelFor(xpAll.n),
+    combo: comboLive ? last.combo || 1 : 1,
+    combo_expires_in_sec: comboLive ? Math.max(0, Math.round((COMBO_WINDOW_MIN - last.mins) * 60)) : 0,
   };
+}
+
+async function apiGoal(env, data) {
+  const goal = Math.round(Number(data.goal));
+  if (!(goal >= 1 && goal <= 30)) throw new HttpError(400, 'goal must be 1–30');
+  await kvSet(env, 'daily_goal', goal);
+  return { ok: true, goal };
+}
+
+// ── Editing ──
+
+// Offset like "-0400" for a calendar date in the user's time zone
+function tzOffset(tz, day) {
+  const name = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'longOffset' })
+    .formatToParts(new Date(`${day}T12:00:00Z`)).find((p) => p.type === 'timeZoneName')?.value || 'GMT';
+  const m = /GMT([+-])(\d{2}):?(\d{2})?/.exec(name);
+  return m ? `${m[1]}${m[2]}${m[3] || '00'}` : '+0000';
+}
+
+async function apiEdit(env, data) {
+  const k = parseKey(data.task_id);
+  if (!k || k.source !== 'ticktick') throw new HttpError(400, 'Only TickTick tasks can be edited');
+  const c = cfg(env);
+  const tt = ticktickClient(env);
+  const full = await tt.getTask(k.projectId, k.taskId);
+
+  if (typeof data.title === 'string' && data.title.trim()) {
+    const { url } = splitMarkdownLink(full.title);
+    const title = data.title.trim().replace(/[\[\]]/g, '');
+    full.title = url ? `[${title}](${url})` : data.title.trim();
+  }
+  if (typeof data.notes === 'string') {
+    // Notes edits keep the first-move line intact
+    const fm = data.first_move !== undefined ? data.first_move : (/(?:🎯\s*)?first move:\s*(.+)/i.exec(full.content || '') || [])[1];
+    full.content = withFirstMove(data.notes, fm || '');
+  } else if (data.first_move !== undefined) {
+    full.content = withFirstMove(full.content || '', data.first_move || '');
+  }
+  if (data.due !== undefined) {
+    if (data.due && /^\d{4}-\d{2}-\d{2}$/.test(data.due)) {
+      const iso = `${data.due}T00:00:00.000${tzOffset(c.tz, data.due)}`;
+      full.dueDate = iso;
+      full.startDate = iso;
+      full.isAllDay = true;
+      full.timeZone = full.timeZone || c.tz;
+    } else {
+      full.dueDate = null;
+      full.startDate = null;
+    }
+  }
+  await tt.update(full);
+  return { ok: true, card: cardFromTickTick(full, { name: data.project || 'Inbox' }, {}, null, c) };
+}
+
+async function apiFirstMove(env, data) {
+  const k = parseKey(data.task_id);
+  if (!k) throw new HttpError(400, 'task_id required');
+  const text = String(data.text || '').trim().slice(0, 300);
+  if (k.source === 'ticktick') {
+    const tt = ticktickClient(env);
+    const full = await tt.getTask(k.projectId, k.taskId);
+    full.content = withFirstMove(full.content || '', text);
+    await tt.update(full);
+  } else {
+    await env.DB.prepare(
+      `INSERT INTO task_meta (task_key, first_move, updated_at) VALUES (?, ?, datetime('now'))
+       ON CONFLICT(task_key) DO UPDATE SET first_move = excluded.first_move, updated_at = excluded.updated_at`
+    ).bind(data.task_id, text || null).run();
+  }
+  return { ok: true, first_move: text || null };
+}
+
+// ✨ Draft a first move with Claude (only when ANTHROPIC_API_KEY is set)
+async function apiSuggest(env, data) {
+  if (!env.ANTHROPIC_API_KEY) throw new HttpError(404, 'Suggestions are off — set ANTHROPIC_API_KEY');
+  const t = data.task || {};
+  const prompt = [
+    `Task: ${t.title || ''}`,
+    t.project ? `List: ${t.project}` : '',
+    t.context ? `Notes/context: ${String(t.context).slice(0, 800)}` : '',
+  ].filter(Boolean).join('\n');
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': env.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: env.AI_MODEL || 'claude-haiku-4-5',
+      max_tokens: 120,
+      system:
+        'You help someone with ADHD start tasks. Reply with ONE concrete first move that takes under 2 minutes ' +
+        'and needs no decisions before starting — a physical, specific action (open X, text Y, write one line). ' +
+        'Max 20 words. No preamble, no quotes.',
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+  if (!r.ok) throw new HttpError(502, `Suggestion failed (${r.status})`);
+  const out = await r.json();
+  const text = (out.content || []).map((b) => b.text || '').join('').trim().replace(/^["']|["']$/g, '');
+  return { ok: true, suggestion: text };
 }
 
 async function apiPatterns(env) {
@@ -400,6 +541,10 @@ export default {
       if (path === '/api/meta' && method === 'POST') return json(await apiMeta(env, await body(request)));
       if (path === '/api/priority' && method === 'POST') return json(await apiPriority(env, await body(request)));
       if (path === '/api/session' && method === 'POST') return json(await apiSession(env, await body(request)));
+      if (path === '/api/edit' && method === 'POST') return json(await apiEdit(env, await body(request)));
+      if (path === '/api/firstmove' && method === 'POST') return json(await apiFirstMove(env, await body(request)));
+      if (path === '/api/suggest' && method === 'POST') return json(await apiSuggest(env, await body(request)));
+      if (path === '/api/goal' && method === 'POST') return json(await apiGoal(env, await body(request)));
       if (path === '/api/stats') return json(await apiStats(env));
       if (path === '/api/patterns') return json(await apiPatterns(env));
       if (path === '/api/delegations') return json(await apiDelegations(env));

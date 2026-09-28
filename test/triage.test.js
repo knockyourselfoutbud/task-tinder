@@ -101,3 +101,24 @@ test('starred emails sort first within the unsorted lane and have their own filt
   assert.equal(fitsFilters({ lane: 'none', source: 'email' }, 'all', 'all', 'email'), true);
   assert.equal(fitsFilters({ lane: 'none', source: 'ticktick' }, 'all', 'all', 'email'), false);
 });
+
+import { extractFirstMove, withFirstMove, xpAward, levelFor } from '../src/triage.js';
+
+test('first move lives as a line in the notes', () => {
+  assert.deepEqual(extractFirstMove('Call the shop\n🎯 First move: find their number'), { firstMove: 'find their number', rest: 'Call the shop' });
+  assert.equal(withFirstMove('Notes here', 'open the email'), '🎯 First move: open the email\n\nNotes here');
+  assert.equal(withFirstMove('🎯 First move: old\n\nNotes', 'new'), '🎯 First move: new\n\nNotes');
+  assert.equal(withFirstMove('🎯 First move: old\n\nNotes', ''), 'Notes');
+  const card = cardFromTickTick({ id: 'x', projectId: 'p1', title: 't', content: '🎯 First move: text Dana\n\nabout Saturday' }, proj, {}, null, cfg);
+  assert.equal(card.firstMove, 'text Dana');
+  assert.equal(card.context, 'about Saturday');
+});
+
+test('xp and levels', () => {
+  assert.equal(xpAward({ effort: '10min', lane: 'none' }, 1, false), 10);
+  assert.equal(xpAward({ effort: '30min', lane: 'high' }, 2, true), 78);
+  assert.equal(xpAward({ lane: 'med' }, 9, false), 60); // combo capped at x3
+  assert.equal(levelFor(0).level, 1);
+  assert.equal(levelFor(100).level, 2);
+  assert.equal(levelFor(299).toNext, 1);
+});
