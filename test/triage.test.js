@@ -93,3 +93,11 @@ test('sort: high → med → low → none; overdue, then oldest first within a l
   ]);
   assert.deepEqual(out.map((c) => c.id), ['h-over', 'h-old', 'h-new', 'med', 'low', 'none']);
 });
+
+test('starred emails sort first within the unsorted lane and have their own filter', () => {
+  const mk = (id, lane, extra = {}) => ({ id, lane, source: 'ticktick', overdue: false, dueSoon: false, anchor: false, due: null, ageDays: 1, sortOrder: 0, ...extra });
+  const out = sortDeck([mk('t-over', 'none', { overdue: true, due: '2026-09-01' }), mk('mail', 'none', { source: 'email' }), mk('high', 'high')]);
+  assert.deepEqual(out.map((c) => c.id), ['high', 'mail', 't-over']);
+  assert.equal(fitsFilters({ lane: 'none', source: 'email' }, 'all', 'all', 'email'), true);
+  assert.equal(fitsFilters({ lane: 'none', source: 'ticktick' }, 'all', 'all', 'email'), false);
+});

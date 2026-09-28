@@ -78,7 +78,7 @@ a { color:inherit; }
 .mode-seg .count { display:inline-block; min-width:18px; padding:0 5px; margin-left:4px; border-radius:100px; background:var(--surface-3); color:var(--text); font-size:10px; line-height:16px; }
 
 /* Priority lanes */
-.lane-strip { display:grid; grid-template-columns:repeat(5,1fr); gap:5px; margin:2px 0 8px; }
+.lane-strip { display:grid; grid-template-columns:repeat(6,1fr); gap:4px; margin:2px 0 8px; }
 .lane { text-align:center; font-family:var(--mono); font-size:10px; padding:7px 0 6px; border-radius:9px; border:1.5px solid transparent; cursor:pointer; background:var(--surface-2); color:var(--text-dim); }
 .lane b { display:block; font-size:16px; font-weight:500; }
 .lane.l-high { background:var(--red-s); color:var(--red); }
@@ -86,6 +86,7 @@ a { color:inherit; }
 .lane.l-low { background:var(--blue-s); color:var(--blue); }
 .lane.active { border-color:currentColor; }
 .lane.l-all.active { border-color:var(--text-bright); color:var(--text-bright); }
+.lane.l-email { background:var(--red-s); color:var(--red); }
 .nudge { font-family:var(--mono); font-size:11px; color:var(--red); background:var(--red-s); border-radius:9px; padding:8px 10px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; gap:8px; line-height:1.4; }
 .nudge button { border:1px solid var(--red); background:transparent; color:var(--red); border-radius:7px; font-family:var(--mono); font-size:10px; padding:5px 8px; cursor:pointer; white-space:nowrap; }
 
@@ -381,7 +382,8 @@ const ENERGY_RANK = { low: 1, med: 2, high: 3 };
 const LANE_RANK = { high: 0, med: 1, low: 2, none: 3 };
 const LANE_PRIORITY = { high: 5, med: 3, low: 1, none: 0 };
 const LANE_NAME = { high: 'High', med: 'Medium', low: 'Low', none: 'No priority' };
-const LANE_SHORT = { all: 'All', high: 'High', med: 'Med', low: 'Low', none: 'None' };
+const LANE_SHORT = { all: 'All', high: 'High', med: 'Med', low: 'Low', none: 'None', email: '★Mail' };
+let gmailInfo = null;
 
 let allTasks = [];
 let sprintSize = 3;
@@ -472,7 +474,8 @@ function applyFiltersOpen() {
 }
 
 function fits(t) {
-  if (lane !== 'all' && t.lane !== lane) return false;
+  if (lane === 'email') { if (t.source !== 'email') return false; }
+  else if (lane !== 'all' && t.lane !== lane) return false;
   if (budget !== 'all' && t.effort && EFFORT_MIN[t.effort] > EFFORT_MIN[budget]) return false;
   if (energy !== 'all' && t.energy && ENERGY_RANK[t.energy] > ENERGY_RANK[energy]) return false;
   return true;
@@ -482,6 +485,7 @@ function laneSort(list) {
   const dueKey = (c) => c.due || '9999-12-31';
   return list.sort((a, b) =>
     (LANE_RANK[a.lane] - LANE_RANK[b.lane]) ||
+    (Number(b.source === 'email') - Number(a.source === 'email')) ||
     (Number(b.overdue) - Number(a.overdue)) ||
     (Number(b.dueSoon) - Number(a.dueSoon)) ||
     (Number(b.anchor) - Number(a.anchor)) ||
@@ -511,6 +515,7 @@ async function loadDeck(manual) {
     sprintSize = r.sprintSize || 3;
     highLimit = r.highLimit || 5;
     renderBanner(r.sources || {});
+    gmailInfo = (r.sources || {}).gmail || null;
     sortSeen.clear();
     if (mode === 'sort') rebuildSort(); else rebuildDeck();
     updateCounts();
@@ -535,14 +540,14 @@ function renderBanner(sources) {
 
 function laneCounts() {
   // Counts reflect everything open (not the time/energy filters) so the numbers are stable
-  const c = { all: 0, high: 0, med: 0, low: 0, none: 0 };
-  allTasks.forEach((t) => { if (!actioned.has(t.id)) { c[t.lane]++; c.all++; } });
+  const c = { all: 0, high: 0, med: 0, low: 0, none: 0, email: 0 };
+  allTasks.forEach((t) => { if (!actioned.has(t.id)) { c[t.lane]++; c.all++; if (t.source === 'email') c.email++; } });
   return c;
 }
 
 function renderLanes() {
   const c = laneCounts();
-  document.getElementById('lane-strip').innerHTML = ['all', 'high', 'med', 'low', 'none'].map((l) =>
+  document.getElementById('lane-strip').innerHTML = ['all', 'high', 'med', 'low', 'none', 'email'].map((l) =>
     `<button class="lane l-${l} ${lane === l ? 'active' : ''}" onclick="setLane('${l}')"><b>${c[l]}</b>${LANE_SHORT[l]}</button>`).join('');
   const nudge = document.getElementById('nudge');
   if (c.high > highLimit) {
@@ -617,12 +622,20 @@ function renderStack(stackId, list, idx, opts) {
   if (top) initSwipe(top, opts.sort ? 'sort' : 'do');
 }
 
+function emailEmptyMsg() {
+  const g = gmailInfo || {};
+  if (g.status === 'not_connected') return 'Gmail isn\'t connected. <a href="/setup">Connect it</a>';
+  if (g.status === 'error') return `Gmail error: ${esc(g.note || '')}`;
+  if (g.fetched === undefined) return 'No starred emails here.';
+  return `No starred emails left here.<br><small>Checked your ${g.fetched} most recent starred threads · ${g.alreadyInTickTick || 0} already have a TickTick task, so they show up as TickTick cards instead.</small>`;
+}
+
 function renderDoCards() {
   const stack = document.getElementById('do-stack');
   if (deckIdx >= deck.length) {
     const hidden = allTasks.filter((t) => !actioned.has(t.id) && !fits(t)).length;
     stack.innerHTML = `<div class="empty-deck"><div class="empty-emoji">&#10024;</div>
-      ${allTasks.length ? (lane !== 'all' ? `No more ${LANE_NAME[lane]} tasks here.` : 'Deck cleared. Nice work.') : 'Nothing here yet.'}
+      ${lane === 'email' ? emailEmptyMsg() : allTasks.length ? (lane !== 'all' ? `No more ${LANE_NAME[lane]} tasks here.` : 'Deck cleared. Nice work.') : 'Nothing here yet.'}
       ${hidden ? `<br><small>${hidden} more hidden by your filters</small><br><button class="btn small" onclick="lane='all';savePref('lane','all');setBudget('all');setEnergy('all')">show everything</button>` : ''}</div>`;
     return;
   }

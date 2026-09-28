@@ -110,12 +110,14 @@ async function buildDeck(env) {
   // Starred Gmail
   try {
     const threads = await gm.starredThreads();
+    let dupes = 0;
     for (const th of threads) {
       // Skip emails you've already turned into TickTick tasks (link contains the id)
-      if (ttText.includes(th.threadId) || (th.messageId && ttText.includes(th.messageId))) continue;
+      if (ttText.includes(th.threadId) || (th.messageId && ttText.includes(th.messageId))) { dupes++; continue; }
       const card = cardFromEmail(th, meta[`gm:${th.threadId}`], c);
       if (!hidden.has(card.id)) cards.push(card);
     }
+    sources.gmail = { status: 'ok', fetched: threads.length, alreadyInTickTick: dupes };
   } catch (e) {
     sources.gmail = { status: e instanceof NotConnected ? 'not_connected' : 'error', note: e.message };
   }

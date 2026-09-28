@@ -211,11 +211,12 @@ export function cardFromEmail(thread, meta, cfg) {
   };
 }
 
-// Deck order: lane → overdue → due soon → anchor → due date → oldest first → TickTick order
+// Deck order: lane → starred emails first (someone is waiting) → overdue → due soon → anchor → due date → oldest first → TickTick order
 export function sortDeck(cards) {
   const dueKey = (c) => c.due || '9999-12-31';
   return cards.sort((a, b) =>
     (LANE_RANK[a.lane] - LANE_RANK[b.lane]) ||
+    (Number(b.source === 'email') - Number(a.source === 'email')) ||
     (Number(b.overdue) - Number(a.overdue)) ||
     (Number(b.dueSoon) - Number(a.dueSoon)) ||
     (Number(b.anchor) - Number(a.anchor)) ||
@@ -227,7 +228,8 @@ export function sortDeck(cards) {
 
 // Mirrors the client-side filter (kept here for tests)
 export function fitsFilters(card, budget, energy, lane = 'all') {
-  if (lane !== 'all' && card.lane !== lane) return false;
+  if (lane === 'email') { if (card.source !== 'email') return false; }
+  else if (lane !== 'all' && card.lane !== lane) return false;
   if (budget && budget !== 'all' && card.effort && EFFORT_MIN[card.effort] > EFFORT_MIN[budget]) return false;
   if (energy && energy !== 'all' && card.energy && ENERGY_RANK[card.energy] > ENERGY_RANK[energy]) return false;
   return true;
