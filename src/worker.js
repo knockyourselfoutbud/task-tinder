@@ -3,7 +3,7 @@ import INDEX_HTML from './index.html';
 import {
   isAuthed, checkPasscode, sessionCookie, clearSessionCookie, getCookie, cookieHeader, randomState,
 } from './auth.js';
-import { loginPage, setupPage, MANIFEST, ICON_SVG } from './pages.js';
+import { loginPage, setupPage, privacyPage, termsPage, MANIFEST, ICON_SVG } from './pages.js';
 import { ticktickClient, ticktickAuthUrl, ticktickExchangeCode, NotConnected } from './ticktick.js';
 import { gmailClient, googleAuthUrl, googleExchangeCode } from './gmail.js';
 import { kvDelete } from './store.js';
@@ -360,6 +360,8 @@ export default {
 
     // Public bits
     if (path === '/manifest.webmanifest') return new Response(MANIFEST, { headers: { 'Content-Type': 'application/manifest+json' } });
+    if (path === '/privacy') return html(privacyPage(url.origin), 200, { 'Cache-Control': 'public, max-age=3600' });
+    if (path === '/terms') return html(termsPage(url.origin), 200, { 'Cache-Control': 'public, max-age=3600' });
     if (path === '/icon.svg') return new Response(ICON_SVG, { headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' } });
     if (path === '/login') {
       if (request.method === 'POST') {

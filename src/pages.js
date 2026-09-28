@@ -76,3 +76,25 @@ export const MANIFEST = JSON.stringify({
 });
 
 export const ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#1a1815"/><rect x="136" y="150" width="240" height="250" rx="34" fill="#f6f5f1" transform="rotate(-8 256 275)"/><rect x="136" y="130" width="240" height="250" rx="34" fill="#fff" stroke="#16a163" stroke-width="10" transform="rotate(6 256 255)"/><path d="M205 260l38 38 76-86" fill="none" stroke="#16a163" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" transform="rotate(6 256 255)"/></svg>`;
+
+// Public pages Google's OAuth consent screen links to
+export function privacyPage(origin) {
+  return shell('Task Tinder · Privacy', `
+<h1>Privacy policy</h1><div class="sub">Task Tinder · ${esc(origin)}</div>
+<div class="card" style="line-height:1.6;font-size:14px">
+<p><b>Who uses this app.</b> Task Tinder is a personal productivity tool run by its owner for their own use. It is not offered to the public, and access requires a passcode.</p><br>
+<p><b>What it accesses.</b> With the owner's permission, it reads tasks from their TickTick account and starred messages (subject, sender, short snippet, labels) from their Gmail account. It can complete or update TickTick tasks and remove the star from Gmail messages when the owner asks it to.</p><br>
+<p><b>What it stores.</b> OAuth tokens, the owner's triage choices (skips, effort/energy tags) and notes the owner writes about how tasks were completed. These are stored in a private Cloudflare D1 database controlled by the owner. Email bodies are not stored.</p><br>
+<p><b>Sharing.</b> No data is sold, shared with third parties, or used for advertising or model training. Data is only sent to TickTick and Google to perform the actions above.</p><br>
+<p><b>Google user data.</b> Use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p><br>
+<p><b>Removing access.</b> Access can be revoked at any time from the app's Connections page, or from your Google account (Security → Third-party access) and TickTick account settings. Disconnecting deletes the stored token.</p>
+</div>`);
+}
+
+export function termsPage(origin) {
+  return shell('Task Tinder · Terms', `
+<h1>Terms of service</h1><div class="sub">Task Tinder · ${esc(origin)}</div>
+<div class="card" style="line-height:1.6;font-size:14px">
+<p>Task Tinder is a personal tool provided as-is, without warranty, for use by its owner only. See the <a href="/privacy">privacy policy</a> for how data is handled.</p>
+</div>`);
+}
