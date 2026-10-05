@@ -416,7 +416,11 @@ async function apiSuggest(env, data) {
       messages: [{ role: 'user', content: prompt }],
     }),
   });
-  if (!r.ok) throw new HttpError(502, `Suggestion failed (${r.status})`);
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    const why = (err.error && err.error.message) || '';
+    throw new HttpError(502, `Claude couldn't suggest (${r.status})${why ? ': ' + why.slice(0, 160) : ''}`);
+  }
   const out = await r.json();
   const text = (out.content || []).map((b) => b.text || '').join('').trim().replace(/^["']|["']$/g, '');
   return { ok: true, suggestion: text };

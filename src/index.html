@@ -170,6 +170,23 @@ a { color:inherit; }
 .ind-d { top:auto; bottom:18px; left:50%; transform:translateX(-50%); color:var(--sky); }
 
 .actions { display:grid; grid-template-columns:1fr 1fr 1.2fr; gap:8px; margin-bottom:8px; }
+.btn.queue-add { grid-column:1 / -1; background:var(--lilac); font-size:13px; padding:9px; }
+.btn.queue-add .qn { font-family:var(--mono); font-size:11px; margin-left:6px; opacity:.8; }
+
+/* Queue (batch) */
+.queue { background:var(--panel); color:var(--panel-ink); border:3px solid var(--line); border-radius:14px; box-shadow:var(--sh-s); padding:10px 12px 12px; margin-bottom:10px; }
+.queue-head { display:flex; align-items:center; gap:8px; }
+.queue-head .tag { font-family:var(--mono); font-size:10px; font-weight:700; letter-spacing:.12em; background:var(--yellow); color:#141311; padding:3px 7px; border-radius:6px; }
+.queue-head .meta { font-family:var(--mono); font-size:11px; color:var(--panel-dim); flex:1; }
+.queue ol { list-style:none; margin:8px 0 10px; }
+.queue li { display:flex; align-items:center; gap:8px; font-size:13.5px; padding:6px 0; border-top:1px dashed #3a3730; }
+.queue li .n { font-family:var(--display); color:var(--yellow); width:16px; flex:none; }
+.queue li .t { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.queue li .sz { font-family:var(--mono); font-size:10px; color:var(--panel-dim); flex:none; }
+.queue li .x { background:none; border:none; color:var(--panel-dim); font-size:18px; line-height:1; cursor:pointer; padding:0 4px; flex:none; }
+.queue .row { display:flex; gap:8px; }
+.queue .play { flex:1; background:var(--green); color:#141311; border-color:#000; }
+.queue .clear { background:transparent; color:var(--panel-ink); border-color:#57534a; box-shadow:none; }
 .hint { font-family:var(--mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; text-align:center; opacity:.75; line-height:1.6; margin-bottom:10px; }
 .deck-row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:6px 0 4px; }
 .deck-lbl { font-family:var(--mono); font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
@@ -215,6 +232,13 @@ a { color:inherit; }
 .focus .done { width:100%; font-size:22px; padding:16px; margin-top:14px; background:var(--green); color:#141311; border-color:#000; box-shadow:0 5px 0 var(--pink); }
 .focus .shelve { width:100%; margin-top:12px; background:transparent; color:#F7F2E3; border:2px solid #57534a; box-shadow:none; font-family:var(--mono); font-size:13px; text-transform:none; }
 .focus .card-link { color:#8f98ff; }
+.bq { display:flex; align-items:center; gap:5px; margin-bottom:8px; }
+.bq i { width:14px; height:14px; border:2px solid #57534a; border-radius:4px; }
+.bq i.done { background:var(--green); border-color:var(--green); }
+.bq i.now { background:var(--yellow); border-color:var(--yellow); }
+.bq span { font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--yellow); margin-left:6px; font-weight:700; }
+.focus .next { font-family:var(--mono); font-size:11px; color:#9d9788; margin-top:12px; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.focus .stop { margin-top:8px; }
 
 /* Sheets */
 .scrim { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:50; display:none; }
@@ -296,13 +320,15 @@ a { color:inherit; }
         <button data-v="all" onclick="setEnergy('all')">any</button>
       </div>
     </div>
+    <div id="queue"></div>
     <div class="stack" id="do-stack"></div>
     <div class="actions">
       <button class="btn" onclick="animOut('left', skipCard)">Not today</button>
       <button class="btn green" onclick="doneCard()">Done &#10003;</button>
       <button class="btn blue" onclick="animOut('right', openFocus)">Let's go &rarr;</button>
+      <button class="btn queue-add" id="queue-add" onclick="queueCard()">+ Queue it for a batch</button>
     </div>
-    <div class="hint">right = start it now &middot; left = not today &middot; arrow keys work</div>
+    <div class="hint">let's go = do it now &middot; queue = line up a few, then play them back to back<br>keys: &rarr; go &middot; &larr; not today &middot; &uarr; or q queue &middot; d done</div>
     <div class="deck-row">
       <button class="btn small" onclick="pickForMe()">&#127922; pick for me</button>
       <span class="deck-lbl" id="deck-lbl"></span>
@@ -415,6 +441,9 @@ let focusTask = null, focusTimer = null, focusLeft = 0, focusTotal = 600, focusS
 let sortLane = pref('sortLane', 'none'), sortDeck = [], sortIdx = 0;
 const sortSeen = new Set(), undoStack = [];
 let busy = false, editTask = null, fmTask = null;
+const QUEUE_MAX = 6;
+let queue = (() => { try { return JSON.parse(pref('queue', '[]')) || []; } catch (e) { return []; } })();
+let batch = null, sprintSize = 3;
 
 // ── init ──
 document.getElementById('date').textContent = 'Task Tinder · ' + new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -440,6 +469,7 @@ document.addEventListener('keydown', (e) => {
   }
   if (e.key === 'ArrowRight') animOut('right', openFocus);
   else if (e.key === 'ArrowLeft') animOut('left', skipCard);
+  else if (e.key === 'ArrowUp' || e.key === 'q') { e.preventDefault(); queueCard(); }
   else if (e.key === 'd') doneCard();
   else if (e.key === 'e') openEdit();
 });
@@ -527,6 +557,10 @@ async function loadDeck(manual) {
     allTasks = r.tasks || [];
     features = r.features || {};
     highLimit = r.highLimit || 5;
+    sprintSize = r.sprintSize || 3;
+    const before = queue.length;
+    queue = queue.filter((id) => allTasks.some((t) => t.id === id));
+    if (queue.length !== before) saveQueue();
     gmailInfo = (r.sources || {}).gmail || null;
     renderBanner(r.sources || {});
     sortSeen.clear();
@@ -609,7 +643,7 @@ function applyRound() {
   rebuildDeck();
 }
 function dueCard() {
-  return allTasks.filter((t) => !actioned.has(t.id) && (t.overdue || t.dueLabel === 'due today'))
+  return allTasks.filter((t) => !actioned.has(t.id) && !queue.includes(t.id) && (t.overdue || t.dueLabel === 'due today'))
     .sort((a, b) => LANE_RANK[a.lane] - LANE_RANK[b.lane] || (a.due < b.due ? -1 : 1))[0];
 }
 function renderDue() {
@@ -625,6 +659,8 @@ function renderCoach() {
   let action = '';
   if (goal && done >= goal) msg = 'Goal hit. Anything else today is bonus XP.';
   else if (live) msg = `Combo ×${stats.combo}. Close another before it expires for ×${comboNow()} — go small.`;
+  else if (queue.length >= sprintSize) msg = `${queue.length} queued. That's a batch — hit ▶ Play batch and ride the combo.`;
+  else if (queue.length) msg = `${queue.length} queued. Add ${sprintSize - queue.length} more small one${sprintSize - queue.length > 1 ? 's' : ''}, or just play it.`;
   else if (dueCard()) msg = 'One rule today: clear the DUE item first. Everything else can wait.';
   else if (c.high > highLimit) { msg = `${c.high} Highs is too many to feel urgent. Trim them in Sort.`; action = `<button class="btn small" onclick="openSort('high')">review</button>`; }
   else if (deck[deckIdx] && !deck[deckIdx].firstMove) msg = 'Stuck? Tap the first-move box and write the tiniest step.';
@@ -661,7 +697,7 @@ function laneCounts() {
 }
 function rebuildDeck() {
   laneSort(allTasks);
-  deck = allTasks.filter((t) => !actioned.has(t.id) && fits(t));
+  deck = allTasks.filter((t) => !actioned.has(t.id) && !queue.includes(t.id) && fits(t));
   deckIdx = 0;
   applyFiltersOpen();
   renderDo();
@@ -674,6 +710,7 @@ function renderDo() {
   document.getElementById('nudge').innerHTML = c.high > highLimit
     ? `<div class="nudge"><span>⚠ ${c.high} High — aim for ${highLimit} or fewer</span><button class="btn small" onclick="openSort('high')">review Highs</button></div>` : '';
   document.getElementById('unsorted-count').textContent = allTasks.filter((t) => t.lane === 'none').length;
+  renderQueue();
   renderDoCards();
   renderDots();
 }
@@ -694,7 +731,7 @@ function emailEmptyMsg() {
 function renderDoCards() {
   const stack = document.getElementById('do-stack');
   if (deckIdx >= deck.length) {
-    const hidden = allTasks.filter((t) => !actioned.has(t.id) && !fits(t)).length;
+    const hidden = allTasks.filter((t) => !actioned.has(t.id) && !queue.includes(t.id) && !fits(t)).length;
     stack.innerHTML = `<div class="empty"><div class="big">${lane === 'email' ? '★ Mail' : 'Deck cleared'}</div>
       ${lane === 'email' ? emailEmptyMsg() : allTasks.length ? 'Nice work. Take the win.' : 'Nothing here yet.'}
       ${hidden ? `<br><small>${hidden} more hidden by filters</small><br><button class="btn small" onclick="lane='all';savePref('lane','all');setBudget('all');setEnergy('all')">show everything</button>` : ''}</div>`;
@@ -774,6 +811,7 @@ async function changePriority(t, newLane) {
 function replaceTask(oldId, next) {
   const i = allTasks.findIndex((x) => x.id === oldId); if (i >= 0) allTasks[i] = next;
   const j = deck.findIndex((x) => x.id === oldId); if (j >= 0) deck[j] = next;
+  const q = queue.indexOf(oldId); if (q >= 0) { queue[q] = next.id; saveQueue(); }
 }
 
 // ── actions ──
@@ -812,6 +850,7 @@ async function complete(t, extra) {
   try {
     const r = await api('/api/complete', { task_id: t.id, task: slim(t), ...extra });
     allTasks = allTasks.filter((x) => x.id !== t.id);
+    dequeue(t.id);
     closedHere++;
     applyStats(r.stats);
     const bits = [`+${r.xp} XP`];
@@ -896,6 +935,9 @@ async function saveEdit() {
 function openFocus() {
   flushDone();
   const t = deck[deckIdx]; if (!t) return;
+  enterFocus(t);
+}
+function enterFocus(t) {
   focusTask = t;
   document.getElementById('focus').innerHTML = '';
   const size = SIZE[t.effort];
@@ -923,7 +965,9 @@ function renderFocus() {
   const t = focusTask; if (!t) return;
   const noteEl = document.getElementById('f-note');
   const note = noteEl ? noteEl.value : '';
-  document.getElementById('focus').innerHTML = `
+  const nextT = batch && allTasks.find((x) => x.id === batch.ids[batch.idx + 1]);
+  const bq = batch ? `<div class="bq">${batch.ids.map((_, i) => `<i class="${i < batch.idx ? 'done' : i === batch.idx ? 'now' : ''}"></i>`).join('')}<span>batch ${batch.idx + 1} of ${batch.ids.length}</span></div>` : '';
+  document.getElementById('focus').innerHTML = `${bq}
     <div class="label">In play · +${xpFor(t) * comboNow()} XP · beat the clock for +8</div>
     <h2>${esc(t.title)}</h2>
     ${t.link ? `<a class="card-link" href="${esc(t.link)}" target="_blank" rel="noopener">open ${/mail\.google/.test(t.link) ? 'email' : 'link'} ↗</a>` : ''}
@@ -941,8 +985,10 @@ function renderFocus() {
     </div>
     <div class="label">What happened? (optional, one line)</div>
     <textarea id="f-note" rows="2" placeholder="Saved with the task in TickTick">${esc(note)}</textarea>
-    <button class="btn done" onclick="focusDone()">Done ✓</button>
-    <button class="btn shelve" onclick="shelve()">shelve it · back into today’s deck</button>`;
+    <button class="btn done" onclick="focusDone()">Done ✓${batch ? (nextT ? ' · next' : ' · finish') : ''}</button>
+    <button class="btn shelve" onclick="shelve()">${batch ? 'skip it · on to the next' : 'shelve it · back into today’s deck'}</button>
+    ${batch ? `<button class="btn shelve stop" onclick="endBatch(false)">⏸ stop batch · keep the rest queued</button>
+    ${nextT ? `<div class="next">up next: ${esc(nextT.title)}</div>` : ''}` : ''}`;
 }
 function closeFocus() { clearInterval(focusTimer); focusTask = null; mode = 'do'; showView(); }
 function focusDone() {
@@ -950,18 +996,100 @@ function focusDone() {
   const note = document.getElementById('f-note').value.trim();
   const taken = Math.floor((Date.now() - focusStart) / 1000);
   const timer = focusTotal;
+  if (batch) {
+    actioned.add(t.id);
+    batch.done++;
+    complete(t, { method_notes: note, time_taken_sec: taken, timer_sec: timer });
+    return nextInBatch();
+  }
   closeFocus();
   advance(t);
   complete(t, { method_notes: note, time_taken_sec: taken, timer_sec: timer });
 }
 function shelve() {
   const t = focusTask; if (!t) return;
+  api('/api/dismiss', { task_id: t.id, reason: 'started', task: slim(t) }).catch(() => {});
+  if (batch) {
+    dequeue(t.id);
+    if (fits(t) && !deck.some((x) => x.id === t.id)) deck.push(t);
+    batch.skipped++;
+    return nextInBatch();
+  }
   closeFocus();
   const i = deck.findIndex((x) => x.id === t.id);
   if (i >= 0) { deck.splice(i, 1); deck.push(t); }
   renderDo();
   showToast('Shelved — back of today’s deck');
-  api('/api/dismiss', { task_id: t.id, reason: 'started', task: slim(t) }).catch(() => {});
+}
+
+// ── queue / batch ──
+function saveQueue() { savePref('queue', JSON.stringify(queue)); }
+function queuedTasks() { return queue.map((id) => allTasks.find((t) => t.id === id)).filter(Boolean); }
+function dequeue(id) { const i = queue.indexOf(id); if (i >= 0) { queue.splice(i, 1); saveQueue(); } }
+function queueCard() {
+  flushDone();
+  const t = deck[deckIdx]; if (!t) return;
+  if (queue.length >= QUEUE_MAX) return showToast(`Queue's full (${QUEUE_MAX}). Play the batch first.`, true);
+  animOut('down', () => {
+    queue.push(t.id); saveQueue();
+    deck.splice(deckIdx, 1);
+    renderDo();
+    showToast(`Queued · ${queue.length} in the batch`);
+  });
+}
+function backToDeck(t) { if (t && fits(t) && !deck.some((x) => x.id === t.id)) deck.splice(deckIdx, 0, t); }
+function unqueue(id) {
+  dequeue(id);
+  backToDeck(allTasks.find((t) => t.id === id));
+  renderDo();
+}
+function clearQueue() {
+  const ts = queuedTasks();
+  queue = []; saveQueue();
+  ts.reverse().forEach(backToDeck);
+  renderDo();
+}
+function timerMin(t) { return SIZE[t.effort] ? SIZE[t.effort].timer : 10; }
+function renderQueue() {
+  const q = queuedTasks();
+  const add = document.getElementById('queue-add');
+  add.innerHTML = q.length ? `+ Queue it<span class="qn">${q.length}/${QUEUE_MAX} queued</span>` : '+ Queue it for a batch';
+  if (!q.length) { document.getElementById('queue').innerHTML = ''; return; }
+  const mins = q.reduce((a, t) => a + timerMin(t), 0);
+  const xp = q.reduce((a, t) => a + xpFor(t), 0);
+  document.getElementById('queue').innerHTML = `<div class="queue">
+    <div class="queue-head"><span class="tag">QUEUE</span><span class="meta">${q.length} task${q.length > 1 ? 's' : ''} · ~${mins} min on the clock · ${xp}+ XP</span></div>
+    <ol>${q.map((t, i) => `<li><span class="n">${i + 1}</span><span class="t">${esc(t.title)}</span><span class="sz">${SIZE[t.effort] ? SIZE[t.effort].l : '?'}</span>
+      <button class="x" onclick="unqueue('${esc(t.id)}')" aria-label="Remove from queue">×</button></li>`).join('')}</ol>
+    <div class="row"><button class="btn small clear" onclick="clearQueue()">clear</button><button class="btn play" onclick="playQueue()">▶ Play batch</button></div>
+  </div>`;
+}
+function playQueue() {
+  flushDone();
+  const ids = queuedTasks().map((t) => t.id);
+  if (!ids.length) return;
+  batch = { ids, idx: 0, done: 0, skipped: 0, session_id: null };
+  api('/api/session', { action: 'start', kind: 'sprint', budget, energy }).then((r) => { if (batch) batch.session_id = r.session_id; }).catch(() => {});
+  startBatchTask();
+}
+function startBatchTask() {
+  const t = allTasks.find((x) => x.id === batch.ids[batch.idx]);
+  if (!t) return nextInBatch();
+  enterFocus(t);
+}
+function nextInBatch() {
+  batch.idx++;
+  if (batch.idx >= batch.ids.length) return endBatch(true);
+  startBatchTask();
+}
+function endBatch(finished) {
+  const b = batch; if (!b) return;
+  batch = null;
+  if (b.session_id) api('/api/session', { action: 'end', session_id: b.session_id, stats: { completed: b.done, skipped: b.skipped } }).catch(() => {});
+  closeFocus();
+  renderDo();
+  const left = queuedTasks().length;
+  setTimeout(() => showToast(finished ? `🏁 Batch cleared · ${b.done} done` : `Batch paused · ${left} still queued`), finished ? 2300 : 0);
 }
 
 // ── sort mode ──

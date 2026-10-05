@@ -74,6 +74,7 @@ Cards with unknown effort or energy are never hidden by the time and energy filt
   - a one-line "What happened?" box;
   - **DONE ✓**;
   - **shelve it**, which puts the card at the back of today's deck.
+- **+ Queue it** lines a card up for a batch (up to 6). The queue shows above the deck with its total timer minutes and XP. Tap × to send a card back to the deck. **▶ Play batch** plays the queued cards back to back on the in-play card, each with its own timer, so the combo builds as you go. In a batch, **skip it** sends the card back to the deck and moves on, and **stop batch** keeps whatever's left in the queue for later. The queue is saved on the device.
 - **DONE ✓** completes the task in TickTick, or unstars the email, straight from the deck. A one-line "What happened?" box slides up. You can fill it in or skip it.
 - **← / NOT TODAY** hides the card until tomorrow. Nothing changes in TickTick.
 - **Outcome notes** are saved in the app's history and also appended to the TickTick task as `✅ Done Sep 28: …` before it's completed.
@@ -89,7 +90,7 @@ Cards with unknown effort or energy are never hidden by the time and energy filt
 
 Levels start at 0, 100, 300, 600, 1000, 1500… XP.
 
-Desktop keyboard shortcuts: `→` let's go · `←` not today · `d` done · `e` edit.
+Desktop keyboard shortcuts: `→` let's go · `←` not today · `↑` or `q` queue · `d` done · `e` edit.
 
 ## Setup
 
