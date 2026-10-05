@@ -122,3 +122,17 @@ test('xp and levels', () => {
   assert.equal(levelFor(100).level, 2);
   assert.equal(levelFor(299).toNext, 1);
 });
+
+import { extractClaudeNote } from '../src/triage.js';
+
+test('claude hand-backs: review tag, latest note, sorted first', () => {
+  assert.equal(extractClaudeNote('x\n🤖 Claude did (Oct 4): old\n\n🤖 Claude did (Oct 5): new one\n- detail'), 'new one');
+  assert.equal(extractClaudeNote('🤖 For Claude: please do it'), null);
+  const card = cardFromTickTick({ id: 'r', projectId: 'p1', title: 'Bike rack', tags: ['claude-review'], content: '🤖 Claude did: compared 3 racks' }, proj, {}, null, cfg);
+  assert.equal(card.review, true);
+  assert.equal(card.claudeNote, 'compared 3 racks');
+  const plain = cardFromTickTick({ id: 'p', projectId: 'p1', title: 'x', content: '🤖 Claude did: y' }, proj, {}, null, cfg);
+  assert.equal(plain.review, false);
+  const mk = (id, lane, extra = {}) => ({ id, lane, source: 'ticktick', overdue: false, dueSoon: false, anchor: false, due: null, ageDays: 1, sortOrder: 0, ...extra });
+  assert.deepEqual(sortDeck([mk('high', 'high'), mk('rev', 'none', { review: true })]).map((c) => c.id), ['rev', 'high']);
+});

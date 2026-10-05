@@ -147,6 +147,11 @@ a { color:inherit; }
 .chip.email { background:var(--pink); color:#fff; }
 .chip.anchor { background:var(--ink); color:var(--bg); }
 .chip.stale { color:var(--red); }
+.chip.review { background:var(--lilac); cursor:default; }
+.claude-box { border:2px solid var(--line); border-radius:12px; padding:8px 10px; background:var(--lilac); margin-top:8px; font-size:13px; line-height:1.4; display:flex; gap:8px; align-items:flex-start; }
+.claude-box .txt { flex:1; cursor:pointer; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
+.claude-box .label { font-weight:700; display:block; }
+.claude-box button { flex:none; }
 .card-tools { display:flex; gap:6px; align-items:center; }
 .card-tools button { width:30px; height:30px; border:2px solid var(--line); border-radius:8px; background:var(--paper); cursor:pointer; font-size:14px; }
 .card-title { font-family:var(--display); font-size:22px; line-height:1.15; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
@@ -540,6 +545,7 @@ function fits(t) {
 function laneSort(list) {
   const dk = (c) => c.due || '9999-12-31';
   return list.sort((a, b) =>
+    (Number(!!b.review) - Number(!!a.review)) ||
     (LANE_RANK[a.lane] - LANE_RANK[b.lane]) ||
     (Number(b.source === 'email') - Number(a.source === 'email')) ||
     (Number(b.overdue) - Number(a.overdue)) || (Number(b.dueSoon) - Number(a.dueSoon)) || (Number(b.anchor) - Number(a.anchor)) ||
@@ -752,6 +758,7 @@ function cardHtml(t, cls, sortMode) {
     chips.push(`<button class="chip p-${t.lane}" onclick="cycle('priority')" title="Tap to change priority">${t.lane === 'none' ? 'no prio' : LANE_SHORT[t.lane]}</button>`);
     chips.push(`<button class="chip en ${t.energy ? '' : 'unset'}" onclick="cycle('energy')" title="Tap to change energy">${t.energy ? '⚡' + t.energy : '? energy'}</button>`);
   }
+  if (t.review) chips.push('<span class="chip review">🤖 review</span>');
   if (t.anchor) chips.push('<span class="chip anchor">anchor</span>');
   if (t.dueLabel && t.source !== 'email') chips.push(`<span class="chip ${t.overdue ? 'overdue' : 'due'}">${esc(t.dueLabel)}</span>`);
   if (t.stale) chips.push(`<span class="chip stale">${esc(t.ageLabel)}</span>`);
@@ -767,7 +774,8 @@ function cardHtml(t, cls, sortMode) {
   return `<div class="card ${cls} sz-${size ? size.l : 'x'}" data-id="${esc(t.id)}">${ind}
     <div class="card-chips">${chips.join('')}</div>
     <div class="card-title">${esc(t.title)}</div>
-    ${t.context ? `<div class="card-ctx">${esc(t.context)}</div>` : ''}
+    ${t.review && !sortMode ? `<div class="claude-box"><div class="txt" onclick="openEdit()" title="See the full notes"><span class="label">🤖 Claude did</span>${esc(t.claudeNote || 'Tap to see what Claude wrote in the notes.')}</div>
+      <button class="btn small" onclick="markReviewed()">got it</button></div>` : t.context ? `<div class="card-ctx">${esc(t.context)}</div>` : ''}
     ${t.link ? `<a class="card-link" href="${esc(t.link)}" target="_blank" rel="noopener">open ${/mail\.google/.test(t.link) ? 'email' : 'link'} ↗</a>` : ''}
     <div class="spacer"></div>
     ${fm}
@@ -875,6 +883,13 @@ function openDelegate() {
       catch (e) { showToast(e.message, true); }
     },
   });
+}
+async function markReviewed() {
+  const t = deck[deckIdx]; if (!t || !t.review) return;
+  replaceTask(t.id, { ...t, review: false, claudeNote: null });
+  renderDo();
+  try { await api('/api/reviewed', { task_id: t.id }); showToast('Got it · Claude’s notes stay in TickTick'); }
+  catch (e) { showToast(e.message, true); }
 }
 function openSort(l) { sortLane = l; savePref('sortLane', l); setMode('sort'); }
 

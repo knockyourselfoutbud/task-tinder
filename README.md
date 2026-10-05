@@ -15,7 +15,7 @@ Forked from [loganhc-09/task-tinder](https://github.com/loganhc-09/task-tinder) 
 | Filters | 10/30/60 min (exact match) | **Priority lane** + **Time I have** (up to N minutes) + **Energy I have** (low/med/high) |
 | Starting | Sprint only after 3 cards | **LET'S GO** opens a single-task in-play card with a 5/10/25-minute timer, and **DONE ✓** closes a card in one tap |
 | Completing | Local DB only | Completes the task in **TickTick** / **unstars** the email |
-| Delegate ⚡ | Writes `delegations.jsonl` | Adds a **`claude`** tag in TickTick so Claude (Cowork / Claude Code with the TickTick connector) can pick it up |
+| Delegate ⚡ | Writes `delegations.jsonl` | Adds a **`claude`** tag in TickTick. A scheduled Claude run does what it can (research, Gmail drafts, breaking the task into steps), writes `🤖 Claude did: …` into the notes, and retags the task `claude-review`. The task then comes back at the top of your deck with a 🤖 box and a **got it** button |
 
 ## Two modes
 

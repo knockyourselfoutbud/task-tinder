@@ -178,6 +178,8 @@ export function cardFromTickTick(task, project, columnsById, meta, cfg) {
     stale: (lane === 'high' || lane === 'med') && ageDays != null && ageDays >= STALE_DAYS,
     sortOrder: task.sortOrder || 0,
     recurring: !!task.repeatFlag,
+    review: tl.includes('claude-review'),
+    claudeNote: tl.includes('claude-review') ? extractClaudeNote(rest) : null,
   };
 }
 
@@ -218,10 +220,11 @@ export function cardFromEmail(thread, meta, cfg) {
   };
 }
 
-// Deck order: lane → starred emails first (someone is waiting) → overdue → due soon → anchor → due date → oldest first → TickTick order
+// Deck order: Claude hand-backs to review → lane → starred emails first (someone is waiting) → overdue → due soon → anchor → due date → oldest first → TickTick order
 export function sortDeck(cards) {
   const dueKey = (c) => c.due || '9999-12-31';
   return cards.sort((a, b) =>
+    (Number(!!b.review) - Number(!!a.review)) ||
     (LANE_RANK[a.lane] - LANE_RANK[b.lane]) ||
     (Number(b.source === 'email') - Number(a.source === 'email')) ||
     (Number(b.overdue) - Number(a.overdue)) ||
@@ -252,6 +255,15 @@ export function extractFirstMove(content) {
   if (!m) return { firstMove: null, rest: text };
   const rest = (text.slice(0, m.index) + text.slice(m.index + m[0].length)).replace(/^\s*\n/, '').trim();
   return { firstMove: m[1].trim(), rest };
+}
+
+// Claude's hand-back note: the scheduled run appends "🤖 Claude did (Oct 5): summary". Latest one wins.
+const CLAUDE_DID_RE = /^\s*🤖\s*Claude did[^:\n]*:\s*(.+)$/gmu;
+export function extractClaudeNote(content) {
+  let m, last = null;
+  CLAUDE_DID_RE.lastIndex = 0;
+  while ((m = CLAUDE_DID_RE.exec(content || ''))) last = m[1].trim();
+  return last;
 }
 
 export function withFirstMove(content, firstMove) {

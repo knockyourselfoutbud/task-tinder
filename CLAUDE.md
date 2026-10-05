@@ -29,11 +29,17 @@ When John taps ⚡ on a card:
 - For a TickTick task, the task gets the tag **`claude`**. His optional note is appended to the task content as "🤖 For Claude: …".
 - For a starred email, a new TickTick Inbox task `[subject](gmail link)` is created with the tag `claude`.
 
-To pick up delegated work, use the TickTick connector:
+A scheduled Claude run (twice a day) picks these up with the TickTick connector. The hand-back contract that the app relies on:
 
-1. Find open tasks tagged `claude`.
-2. Do the work, or draft it for John to review. Don't send anything on his behalf without asking.
-3. Complete the task in TickTick, or remove the `claude` tag and add a comment if John needs to finish it.
+1. Find open tasks tagged `claude`. Skip tasks tagged only `claude-review`, because those are waiting on John.
+2. What Claude may do: research and summarize, draft emails as **Gmail drafts** (never send), and break the task into steps (a checklist or subtasks plus a first move). What Claude must not do: send anything, change the calendar, buy anything, delete tasks, or change priority or due date.
+3. Append to the task content, keeping everything already there:
+   ```
+   🤖 Claude did (Oct 5): <one-line summary>
+   - details…
+   ```
+   The app shows the latest `🤖 Claude did` line on the card. If there's no `🎯 First move:` line, Claude may add one as the first line, covering John's next step.
+4. Swap the tag `claude` → `claude-review` and keep the other tags. The card comes back at the top of John's deck with a 🤖 box. **got it** removes `claude-review` (`/api/reviewed`), and ⚡ sends the task back to Claude.
 
 ## Commands
 

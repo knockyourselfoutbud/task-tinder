@@ -72,8 +72,11 @@ async function buildDeck(env) {
        WHERE (reason = 'skip' AND day = ?) OR (reason = 'delegate' AND day >= date(?, '-7 days'))`
     ).bind(c.today, c.today).all(),
   ]);
+  const skipRows = await env.DB.prepare(`SELECT DISTINCT task_key FROM dismissals WHERE reason = 'skip' AND day = ?`).bind(c.today).all();
   const meta = Object.fromEntries((metaRows.results || []).map((r) => [r.task_key, r]));
+  // TickTick delegations are hidden by their `claude` tag instead, so hand-backs reappear right away
   const hidden = new Set((hiddenRows.results || []).map((r) => r.task_key));
+  const ttHidden = new Set((skipRows.results || []).map((r) => r.task_key));
 
   // TickTick
   const cards = [];
@@ -100,7 +103,7 @@ async function buildDeck(env) {
         const tl = (task.tags || []).map((t) => String(t).toLowerCase());
         if (tl.includes('claude')) continue; // delegated to Claude
         const card = cardFromTickTick({ ...task, projectId: task.projectId || project.id }, project, columnsById, meta[`tt:${task.projectId || project.id}:${task.id}`], c);
-        if (!hidden.has(card.id)) cards.push(card);
+        if (!ttHidden.has(card.id)) cards.push(card);
       }
     });
     if (failed.length) sources.ticktick = { status: 'partial', note: `couldn't load: ${failed.join(', ')}` };
@@ -181,6 +184,17 @@ async function apiComplete(env, data) {
   return { ok: true, xp, combo, beat_clock: !!beat, stats: await apiStats(env) };
 }
 
+// You've read Claude's hand-back: drop the claude-review tag (the notes stay in TickTick)
+async function apiReviewed(env, data) {
+  const k = parseKey(data.task_id);
+  if (!k || k.source !== 'ticktick') throw new HttpError(400, 'TickTick task_id required');
+  const tt = ticktickClient(env);
+  const full = await tt.getTask(k.projectId, k.taskId);
+  full.tags = (full.tags || []).filter((t) => String(t).toLowerCase() !== 'claude-review');
+  await tt.update(full);
+  return { ok: true };
+}
+
 async function apiDismiss(env, data) {
   const k = parseKey(data.task_id);
   const reason = ['skip', 'delegate', 'started'].includes(data.reason) ? data.reason : 'skip';
@@ -194,6 +208,7 @@ async function apiDismiss(env, data) {
       const full = await tt.getTask(k.projectId, k.taskId);
       const tags = new Set((full.tags || []).map(String));
       tags.add('claude');
+      tags.delete('claude-review');
       full.tags = [...tags];
       if (note) full.content = `${full.content ? full.content + '\n\n' : ''}🤖 For Claude: ${note}`;
       await tt.update(full);
@@ -546,6 +561,7 @@ export default {
       if (path === '/api/priority' && method === 'POST') return json(await apiPriority(env, await body(request)));
       if (path === '/api/session' && method === 'POST') return json(await apiSession(env, await body(request)));
       if (path === '/api/edit' && method === 'POST') return json(await apiEdit(env, await body(request)));
+      if (path === '/api/reviewed' && method === 'POST') return json(await apiReviewed(env, await body(request)));
       if (path === '/api/firstmove' && method === 'POST') return json(await apiFirstMove(env, await body(request)));
       if (path === '/api/suggest' && method === 'POST') return json(await apiSuggest(env, await body(request)));
       if (path === '/api/goal' && method === 'POST') return json(await apiGoal(env, await body(request)));

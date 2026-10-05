@@ -52,7 +52,8 @@ function seed() {
     { id: 't18', projectId: 'inbox', title: 'Read that long AI article', priority: 3, createdTime: isoIn(-4) },
     { id: 't19', projectId: 'inbox', title: 'Pick up discs from the shop', priority: 3, createdTime: isoIn(-11) },
     { id: 't20', projectId: 'inbox', title: 'Sort old photos into albums', priority: 0, createdTime: isoIn(-60) },
-    { id: 't21', projectId: 'inbox', title: 'Look into new bike rack', priority: 0, createdTime: isoIn(-15) },
+    { id: 't21', projectId: 'inbox', title: 'Look into new bike rack', priority: 0, tags: ['claude-review'], createdTime: isoIn(-15),
+      content: '🎯 First move: Measure the hitch receiver (1.25" or 2").\n\n🤖 For Claude: hitch-mounted, 2 bikes, under $400\n\n🤖 Claude did (Oct 5): Compared 3 hitch racks under $400 — top pick fits a 2" hitch; details below.\n- Rack A: $329, tilts away from hatch\n- Rack B: $279, lighter\n- Rack C: $389, locks both bikes' },
   ];
 
   threads = [
